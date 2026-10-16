@@ -140,6 +140,14 @@ public class LoanApplication {
         this.rejectionReason = rejectionReason;
     }
 
+    public String getRemarks() {
+        return rejectionReason;
+    }
+
+    public void setRemarks(String remarks) {
+        this.rejectionReason = remarks;
+    }
+
     public String getApplicantName() {
         return applicantName;
     }
