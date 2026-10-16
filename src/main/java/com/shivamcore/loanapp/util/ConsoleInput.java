@@ -71,4 +71,8 @@ public class ConsoleInput {
             }
         }
     }
+
+    public Scanner getScanner() {
+        return scanner;
+    }
 }

@@ -23,6 +23,8 @@ public interface UserDao {
 
     boolean existsByEmail(String email);
 
+    boolean existsByRole(com.shivamcore.loanapp.model.Role role);
+
     int incrementFailedAttempts(Long userId);
 
     void lockAccount(Long userId);
@@ -32,4 +34,10 @@ public interface UserDao {
     void updatePassword(Long userId, String newPasswordHash);
 
     void update(User user);
+
+    void deleteById(Long id);
+
+    java.util.List<User> search(String field, String query);
+
+    java.util.List<User> findAll();
 }

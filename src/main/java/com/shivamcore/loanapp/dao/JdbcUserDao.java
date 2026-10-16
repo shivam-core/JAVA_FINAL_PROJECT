@@ -3,6 +3,7 @@ package com.shivamcore.loanapp.dao;
 import com.shivamcore.loanapp.config.DatabaseManager;
 import com.shivamcore.loanapp.exception.DataAccessException;
 import com.shivamcore.loanapp.exception.DuplicateResourceException;
+import com.shivamcore.loanapp.model.Role;
 import com.shivamcore.loanapp.model.Status;
 import com.shivamcore.loanapp.model.User;
 import org.slf4j.Logger;
@@ -10,6 +11,9 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -26,8 +30,8 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public User save(User user) {
-        String sql = "INSERT INTO users (fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, failed_attempts) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -42,7 +46,8 @@ public class JdbcUserDao implements UserDao {
             ps.setString(7, user.getStatus() != null ? user.getStatus().name() : Status.ACTIVE.name());
             ps.setString(8, user.getUsername());
             ps.setString(9, user.getPasswordHash());
-            ps.setInt(10, user.getFailedAttempts());
+            ps.setString(10, user.getRole() != null ? user.getRole().name() : Role.ROLE_USER.name());
+            ps.setInt(11, user.getFailedAttempts());
 
             ps.executeUpdate();
 
@@ -61,7 +66,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public Optional<User> findById(Long id) {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users WHERE id = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -82,7 +87,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public Optional<User> findByUsername(String username) {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users WHERE username = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -103,7 +108,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public Optional<User> findByEmail(String email) {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users WHERE email = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -166,6 +171,23 @@ public class JdbcUserDao implements UserDao {
         } catch (SQLException e) {
             logger.error("Error checking existence by email: {}", email, e);
             throw new DataAccessException("Failed to check email existence", e);
+        }
+    }
+
+    @Override
+    public boolean existsByRole(Role role) {
+        String sql = "SELECT 1 FROM users WHERE user_role = ? LIMIT 1";
+
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, role != null ? role.name() : Role.ROLE_USER.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking existence by role: {}", role, e);
+            throw new DataAccessException("Failed to check role existence", e);
         }
     }
 
@@ -252,7 +274,7 @@ public class JdbcUserDao implements UserDao {
     @Override
     public void update(User user) {
         String sql = "UPDATE users SET fname = ?, lname = ?, mobile = ?, email = ?, location = ?, " +
-                "last_modified_date = ?, status = ?, username = ?, password_hash = ?, failed_attempts = ? " +
+                "last_modified_date = ?, status = ?, username = ?, password_hash = ?, user_role = ?, failed_attempts = ? " +
                 "WHERE id = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -268,14 +290,106 @@ public class JdbcUserDao implements UserDao {
             ps.setString(7, user.getStatus().name());
             ps.setString(8, user.getUsername());
             ps.setString(9, user.getPasswordHash());
-            ps.setInt(10, user.getFailedAttempts());
-            ps.setLong(11, user.getId());
+            ps.setString(10, user.getRole() != null ? user.getRole().name() : Role.ROLE_USER.name());
+            ps.setInt(11, user.getFailedAttempts());
+            ps.setLong(12, user.getId());
 
             ps.executeUpdate();
             user.setLastModifiedDate(now);
         } catch (SQLException e) {
             handleSqlException(e, "update user id: " + user.getId());
             throw new DataAccessException("Failed to update user", e);
+        }
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        String sql = "DELETE FROM users WHERE id = ?";
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.executeUpdate();
+            logger.info("Deleted user with id: {}", id);
+        } catch (SQLException e) {
+            logger.error("Error deleting user with id: {}", id, e);
+            throw new DataAccessException("Failed to delete user", e);
+        }
+    }
+
+    @Override
+    public List<User> findAll() {
+        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+                "FROM users ORDER BY id ASC";
+        List<User> list = new ArrayList<>();
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapRowToUser(rs));
+            }
+            return list;
+        } catch (SQLException e) {
+            logger.error("Error fetching all users", e);
+            throw new DataAccessException("Failed to fetch all users", e);
+        }
+    }
+
+    @Override
+    public List<User> search(String field, String query) {
+        if (field == null || query == null) {
+            return Collections.emptyList();
+        }
+        String cleanQuery = query.trim();
+        String sql;
+        boolean isLike = true;
+
+        switch (field.toLowerCase().trim()) {
+            case "fname":
+            case "first name":
+            case "firstname":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE fname LIKE ? ORDER BY id ASC";
+                break;
+            case "lname":
+            case "last name":
+            case "lastname":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE lname LIKE ? ORDER BY id ASC";
+                break;
+            case "email":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE email LIKE ? ORDER BY id ASC";
+                break;
+            case "mobile":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE mobile = ? ORDER BY id ASC";
+                isLike = false;
+                break;
+            case "username":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE username LIKE ? ORDER BY id ASC";
+                break;
+            case "status":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE status = ? ORDER BY id ASC";
+                isLike = false;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported search field: " + field);
+        }
+
+        List<User> list = new ArrayList<>();
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (isLike) {
+                ps.setString(1, "%" + cleanQuery + "%");
+            } else {
+                ps.setString(1, cleanQuery.toUpperCase());
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRowToUser(rs));
+                }
+            }
+            return list;
+        } catch (SQLException e) {
+            logger.error("Error searching users with field '{}' and query '{}'", field, query, e);
+            throw new DataAccessException("Failed to search users", e);
         }
     }
 
@@ -300,6 +414,18 @@ public class JdbcUserDao implements UserDao {
 
         user.setUsername(rs.getString("username"));
         user.setPasswordHash(rs.getString("password_hash"));
+
+        String roleStr = rs.getString("user_role");
+        if (roleStr != null) {
+            try {
+                user.setRole(Role.valueOf(roleStr));
+            } catch (IllegalArgumentException e) {
+                user.setRole(Role.ROLE_USER);
+            }
+        } else {
+            user.setRole(Role.ROLE_USER);
+        }
+
         user.setFailedAttempts(rs.getInt("failed_attempts"));
         return user;
     }
