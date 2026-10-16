@@ -26,11 +26,17 @@ public class AdminService {
     private final UserDao userDao;
     private final AuditLogDao auditLogDao;
     private final EmailService emailService;
+    private final com.shivamcore.loanapp.dao.LoanDao loanDao;
 
     public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService) {
+        this(userDao, auditLogDao, emailService, null);
+    }
+
+    public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService, com.shivamcore.loanapp.dao.LoanDao loanDao) {
         this.userDao = userDao;
         this.auditLogDao = auditLogDao;
         this.emailService = emailService;
+        this.loanDao = loanDao;
     }
 
     public void requireAdmin(User currentUser) {
@@ -167,5 +173,88 @@ public class AdminService {
 
         // 3. Send final notification email
         emailService.sendDeletionEmail(targetEmail, targetFname);
+    }
+
+    public List<com.shivamcore.loanapp.model.LoanApplication> getAllLoans(User currentUser) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        return loanDao.findAll();
+    }
+
+    public List<com.shivamcore.loanapp.model.LoanApplication> getLoansByStatus(User currentUser, com.shivamcore.loanapp.model.LoanStatus status) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        return loanDao.findByStatus(status);
+    }
+
+    public Optional<com.shivamcore.loanapp.model.LoanApplication> getLoanById(User currentUser, Long loanId) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        return loanDao.findById(loanId);
+    }
+
+    public com.shivamcore.loanapp.model.LoanApplication approveLoan(User currentUser, Long loanId) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        com.shivamcore.loanapp.model.LoanApplication loan = loanDao.findById(loanId)
+                .orElseThrow(() -> new ValidationException("Loan application not found with id: " + loanId));
+
+        if (loan.getStatus() != com.shivamcore.loanapp.model.LoanStatus.PENDING && loan.getStatus() != com.shivamcore.loanapp.model.LoanStatus.NEEDS_MORE_INFO) {
+            throw new ValidationException("Only PENDING or NEEDS_MORE_INFO loans can be approved. Current status: " + loan.getStatus());
+        }
+
+        loanDao.updateStatus(loanId, com.shivamcore.loanapp.model.LoanStatus.APPROVED, null);
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.APPROVED);
+        logger.info("Admin {} approved loan id {}", currentUser.getUsername(), loanId);
+
+        // Notify applicant via email
+        User applicant = userDao.findById(loan.getUserId()).orElse(null);
+        String email = applicant != null ? applicant.getEmail() : loan.getApplicantEmail();
+        String fname = applicant != null ? applicant.getFname() : (loan.getApplicantName() != null ? loan.getApplicantName() : "Applicant");
+        if (email != null && !email.isEmpty()) {
+            emailService.sendLoanApprovedEmail(email, fname, loan.getLoanAmount());
+        }
+
+        return loan;
+    }
+
+    public com.shivamcore.loanapp.model.LoanApplication rejectLoan(User currentUser, Long loanId, String reason) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new ValidationException("Rejection reason is mandatory.");
+        }
+        com.shivamcore.loanapp.model.LoanApplication loan = loanDao.findById(loanId)
+                .orElseThrow(() -> new ValidationException("Loan application not found with id: " + loanId));
+
+        if (loan.getStatus() != com.shivamcore.loanapp.model.LoanStatus.PENDING && loan.getStatus() != com.shivamcore.loanapp.model.LoanStatus.NEEDS_MORE_INFO) {
+            throw new ValidationException("Only PENDING or NEEDS_MORE_INFO loans can be rejected. Current status: " + loan.getStatus());
+        }
+
+        String trimmedReason = reason.trim();
+        loanDao.updateStatus(loanId, com.shivamcore.loanapp.model.LoanStatus.REJECTED, trimmedReason);
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.REJECTED);
+        loan.setRejectionReason(trimmedReason);
+        logger.info("Admin {} rejected loan id {} with reason: {}", currentUser.getUsername(), loanId, trimmedReason);
+
+        // Notify applicant via email
+        User applicant = userDao.findById(loan.getUserId()).orElse(null);
+        String email = applicant != null ? applicant.getEmail() : loan.getApplicantEmail();
+        String fname = applicant != null ? applicant.getFname() : (loan.getApplicantName() != null ? loan.getApplicantName() : "Applicant");
+        if (email != null && !email.isEmpty()) {
+            emailService.sendLoanRejectedEmail(email, fname, trimmedReason);
+        }
+
+        return loan;
     }
 }

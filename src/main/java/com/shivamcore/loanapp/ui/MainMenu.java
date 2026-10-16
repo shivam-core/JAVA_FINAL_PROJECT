@@ -17,19 +17,25 @@ public class MainMenu {
     private final UserService userService;
     private final AuthService authService;
     private final com.shivamcore.loanapp.service.AdminService adminService;
+    private final com.shivamcore.loanapp.service.LoanService loanService;
     private final ConsoleInput input;
     private final UserMenu userMenu;
 
     public MainMenu(UserService userService, AuthService authService, ConsoleInput input) {
-        this(userService, authService, null, input);
+        this(userService, authService, null, null, input);
     }
 
     public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, ConsoleInput input) {
+        this(userService, authService, adminService, null, input);
+    }
+
+    public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, com.shivamcore.loanapp.service.LoanService loanService, ConsoleInput input) {
         this.userService = userService;
         this.authService = authService;
         this.adminService = adminService;
+        this.loanService = loanService;
         this.input = input;
-        this.userMenu = new UserMenu(input);
+        this.userMenu = new UserMenu(loanService, input);
     }
 
     /**

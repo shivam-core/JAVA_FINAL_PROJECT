@@ -23,6 +23,7 @@ class AdminServiceTest {
 
     private InMemoryUserDao userDao;
     private InMemoryAuditLogDao auditLogDao;
+    private InMemoryLoanDao loanDao;
     private AdminService adminService;
     private User adminUser;
     private User regularUser;
@@ -31,10 +32,11 @@ class AdminServiceTest {
     void setUp() {
         userDao = new InMemoryUserDao();
         auditLogDao = new InMemoryAuditLogDao();
+        loanDao = new InMemoryLoanDao();
         Properties props = new Properties();
         props.setProperty("mail.enabled", "false");
         EmailService emailService = new EmailService(new ConfigLoader(props, null));
-        adminService = new AdminService(userDao, auditLogDao, emailService);
+        adminService = new AdminService(userDao, auditLogDao, emailService, loanDao);
 
         adminUser = new User();
         adminUser.setFname("Admin");
@@ -125,6 +127,84 @@ class AdminServiceTest {
         assertEquals("DELETE_USER", recentLogs.get(0).getAction());
         assertEquals("admin", recentLogs.get(0).getPerformedBy());
         assertEquals("johndoe", recentLogs.get(0).getTargetUsername());
+    }
+
+    @Test
+    @DisplayName("Admin can list and view loan applications")
+    void testAdminLoanListingAndDetails() {
+        com.shivamcore.loanapp.model.LoanApplication loan = new com.shivamcore.loanapp.model.LoanApplication();
+        loan.setUserId(regularUser.getId());
+        loan.setLoanAmount(new java.math.BigDecimal("100000.00"));
+        loan.setLoanType(com.shivamcore.loanapp.model.LoanType.HOME);
+        loan.setLoanDurationMonths(24);
+        loan.setInterestRate(new java.math.BigDecimal("7.50"));
+        loan.setAnnualIncome(new java.math.BigDecimal("600000.00"));
+        loan.setPurpose("Home renovation");
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.PENDING);
+        loanDao.save(loan);
+
+        List<com.shivamcore.loanapp.model.LoanApplication> allLoans = adminService.getAllLoans(adminUser);
+        assertEquals(1, allLoans.size());
+
+        List<com.shivamcore.loanapp.model.LoanApplication> pendingLoans = adminService.getLoansByStatus(adminUser, com.shivamcore.loanapp.model.LoanStatus.PENDING);
+        assertEquals(1, pendingLoans.size());
+
+        Optional<com.shivamcore.loanapp.model.LoanApplication> found = adminService.getLoanById(adminUser, loan.getId());
+        assertTrue(found.isPresent());
+        assertEquals("Home renovation", found.get().getPurpose());
+
+        assertThrows(AccessDeniedException.class, () -> adminService.getAllLoans(regularUser));
+    }
+
+    @Test
+    @DisplayName("Admin can approve pending loan and transition is enforced")
+    void testAdminApproveLoan() {
+        com.shivamcore.loanapp.model.LoanApplication loan = new com.shivamcore.loanapp.model.LoanApplication();
+        loan.setUserId(regularUser.getId());
+        loan.setLoanAmount(new java.math.BigDecimal("250000.00"));
+        loan.setLoanType(com.shivamcore.loanapp.model.LoanType.PERSONAL);
+        loan.setLoanDurationMonths(12);
+        loan.setInterestRate(new java.math.BigDecimal("10.50"));
+        loan.setAnnualIncome(new java.math.BigDecimal("800000.00"));
+        loan.setPurpose("Medical");
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.PENDING);
+        loanDao.save(loan);
+
+        com.shivamcore.loanapp.model.LoanApplication approved = adminService.approveLoan(adminUser, loan.getId());
+        assertEquals(com.shivamcore.loanapp.model.LoanStatus.APPROVED, approved.getStatus());
+
+        // Already decided loan cannot transition again
+        assertThrows(ValidationException.class, () -> adminService.approveLoan(adminUser, loan.getId()));
+        assertThrows(ValidationException.class, () -> adminService.rejectLoan(adminUser, loan.getId(), "Too late"));
+
+        // Non-admin cannot approve
+        assertThrows(AccessDeniedException.class, () -> adminService.approveLoan(regularUser, loan.getId()));
+    }
+
+    @Test
+    @DisplayName("Admin can reject pending loan with reason")
+    void testAdminRejectLoan() {
+        com.shivamcore.loanapp.model.LoanApplication loan = new com.shivamcore.loanapp.model.LoanApplication();
+        loan.setUserId(regularUser.getId());
+        loan.setLoanAmount(new java.math.BigDecimal("500000.00"));
+        loan.setLoanType(com.shivamcore.loanapp.model.LoanType.HOME);
+        loan.setLoanDurationMonths(36);
+        loan.setInterestRate(new java.math.BigDecimal("7.50"));
+        loan.setAnnualIncome(new java.math.BigDecimal("300000.00"));
+        loan.setPurpose("House purchase");
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.PENDING);
+        loanDao.save(loan);
+
+        // Reject requires non-empty reason
+        assertThrows(ValidationException.class, () -> adminService.rejectLoan(adminUser, loan.getId(), ""));
+        assertThrows(ValidationException.class, () -> adminService.rejectLoan(adminUser, loan.getId(), "   "));
+
+        com.shivamcore.loanapp.model.LoanApplication rejected = adminService.rejectLoan(adminUser, loan.getId(), "Insufficient income");
+        assertEquals(com.shivamcore.loanapp.model.LoanStatus.REJECTED, rejected.getStatus());
+        assertEquals("Insufficient income", rejected.getRejectionReason());
+
+        // Already decided loan cannot transition again
+        assertThrows(ValidationException.class, () -> adminService.approveLoan(adminUser, loan.getId()));
     }
 
     private static class InMemoryAuditLogDao implements AuditLogDao {
@@ -253,6 +333,56 @@ class AdminServiceTest {
         @Override
         public List<User> findAll() {
             return new ArrayList<>(map.values());
+        }
+    }
+
+    private static class InMemoryLoanDao implements com.shivamcore.loanapp.dao.LoanDao {
+        private final Map<Long, com.shivamcore.loanapp.model.LoanApplication> map = new HashMap<>();
+        private final AtomicLong idGen = new AtomicLong(1);
+
+        @Override
+        public com.shivamcore.loanapp.model.LoanApplication save(com.shivamcore.loanapp.model.LoanApplication loan) {
+            if (loan.getId() == null) {
+                loan.setId(idGen.getAndIncrement());
+            }
+            if (loan.getApplicationDate() == null) {
+                loan.setApplicationDate(LocalDateTime.now());
+            }
+            map.put(loan.getId(), loan);
+            return loan;
+        }
+
+        @Override
+        public Optional<com.shivamcore.loanapp.model.LoanApplication> findById(Long id) {
+            return Optional.ofNullable(map.get(id));
+        }
+
+        @Override
+        public List<com.shivamcore.loanapp.model.LoanApplication> findByUserId(Long userId) {
+            return map.values().stream()
+                    .filter(l -> l.getUserId().equals(userId))
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
+        @Override
+        public List<com.shivamcore.loanapp.model.LoanApplication> findAll() {
+            return new ArrayList<>(map.values());
+        }
+
+        @Override
+        public List<com.shivamcore.loanapp.model.LoanApplication> findByStatus(com.shivamcore.loanapp.model.LoanStatus status) {
+            return map.values().stream()
+                    .filter(l -> l.getStatus() == status)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+
+        @Override
+        public void updateStatus(Long id, com.shivamcore.loanapp.model.LoanStatus newStatus, String rejectionReason) {
+            com.shivamcore.loanapp.model.LoanApplication loan = map.get(id);
+            if (loan != null) {
+                loan.setStatus(newStatus);
+                loan.setRejectionReason(rejectionReason);
+            }
         }
     }
 }
