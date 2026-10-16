@@ -23,6 +23,8 @@ public interface UserDao {
 
     boolean existsByEmail(String email);
 
+    boolean existsByRole(com.shivamcore.loanapp.model.Role role);
+
     int incrementFailedAttempts(Long userId);
 
     void lockAccount(Long userId);

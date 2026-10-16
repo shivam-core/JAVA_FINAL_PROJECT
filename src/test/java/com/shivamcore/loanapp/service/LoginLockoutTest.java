@@ -187,6 +187,36 @@ class LoginLockoutTest {
         assertTrue(ex.getMessage().contains("Password must be at least 8 characters"));
     }
 
+    @Test
+    @DisplayName("Admin user is excluded from failed login attempts counter and lockout (Decision 4)")
+    void adminExcludedFromLockout() {
+        User admin = new User();
+        admin.setFname("Admin");
+        admin.setLname("User");
+        admin.setMobile("9999999999");
+        admin.setEmail("admin@loanapp.com");
+        admin.setLocation("HQ");
+        admin.setUsername("admin");
+        admin.setPasswordHash(PasswordHasher.hash("Admin@1234"));
+        admin.setStatus(Status.ACTIVE);
+        admin.setRole(com.shivamcore.loanapp.model.Role.ROLE_ADMIN);
+        admin.setFailedAttempts(0);
+        fakeUserDao.save(admin);
+
+        for (int i = 0; i < 5; i++) {
+            assertThrows(AuthenticationException.class, () ->
+                    authService.login("admin", "WrongPass@123"));
+        }
+
+        User fromDb = fakeUserDao.findByUsername("admin").orElseThrow();
+        assertEquals(0, fromDb.getFailedAttempts(), "Admin failed attempts should never increment");
+        assertEquals(Status.ACTIVE, fromDb.getStatus(), "Admin should never be locked");
+
+        // Admin can still log in with correct password
+        User loggedIn = authService.login("admin", "Admin@1234");
+        assertNotNull(loggedIn);
+    }
+
     // In-memory fake DAO implementation for isolated pure unit testing
     private static class FakeUserDao implements UserDao {
         private final Map<Long, User> usersById = new HashMap<>();
@@ -243,6 +273,12 @@ class LoginLockoutTest {
         }
 
         @Override
+        public boolean existsByRole(com.shivamcore.loanapp.model.Role role) {
+            return usersById.values().stream()
+                    .anyMatch(u -> u.getRole() == role);
+        }
+
+        @Override
         public int incrementFailedAttempts(Long userId) {
             User user = usersById.get(userId);
             if (user != null) {
@@ -286,7 +322,7 @@ class LoginLockoutTest {
             return new User(
                     u.getId(), u.getFname(), u.getLname(), u.getMobile(), u.getEmail(),
                     u.getLocation(), u.getLastModifiedDate(), u.getStatus(),
-                    u.getUsername(), u.getPasswordHash(), u.getFailedAttempts()
+                    u.getUsername(), u.getPasswordHash(), u.getRole(), u.getFailedAttempts()
             );
         }
     }

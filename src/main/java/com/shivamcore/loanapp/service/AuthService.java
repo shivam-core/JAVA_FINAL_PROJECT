@@ -56,6 +56,12 @@ public class AuthService {
         boolean passwordMatches = PasswordHasher.verify(password, user.getPasswordHash());
 
         if (!passwordMatches) {
+            // Decision 4: Admins should not be part of user-level failed login attempts functionality
+            if (user.isAdmin()) {
+                logger.warn("Admin authentication failed with invalid credentials for user id: {}", user.getId());
+                throw new AuthenticationException("Invalid credentials.");
+            }
+
             // Check if already inactive
             if (user.getStatus() == Status.INACTIVE) {
                 logger.warn("Authentication failed with invalid credentials for inactive user id: {}", user.getId());
@@ -82,8 +88,8 @@ public class AuthService {
             throw new AuthenticationException("Your account is locked or inactive. Please contact support.");
         }
 
-        // Password matches and account is ACTIVE -> reset counter if needed
-        if (user.getFailedAttempts() > 0) {
+        // Password matches and account is ACTIVE -> reset counter if needed (admin never touches counter)
+        if (!user.isAdmin() && user.getFailedAttempts() > 0) {
             userDao.resetFailedAttempts(user.getId());
             user.setFailedAttempts(0);
             logger.info("Reset failed_attempts to 0 after successful login for user id: {}", user.getId());

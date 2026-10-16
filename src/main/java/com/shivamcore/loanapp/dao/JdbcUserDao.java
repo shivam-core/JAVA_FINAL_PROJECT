@@ -172,6 +172,23 @@ public class JdbcUserDao implements UserDao {
     }
 
     @Override
+    public boolean existsByRole(Role role) {
+        String sql = "SELECT 1 FROM users WHERE user_role = ? LIMIT 1";
+
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, role != null ? role.name() : Role.ROLE_USER.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking existence by role: {}", role, e);
+            throw new DataAccessException("Failed to check role existence", e);
+        }
+    }
+
+    @Override
     public int incrementFailedAttempts(Long userId) {
         String updateSql = "UPDATE users SET failed_attempts = failed_attempts + 1, last_modified_date = ? WHERE id = ?";
         String selectSql = "SELECT failed_attempts FROM users WHERE id = ?";
