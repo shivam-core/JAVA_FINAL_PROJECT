@@ -62,7 +62,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public Optional<LoanApplication> findById(Long id) {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id WHERE l.id = ?";
 
@@ -84,7 +84,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public List<LoanApplication> findByUserId(Long userId) {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id WHERE l.user_id = ? ORDER BY l.id DESC";
 
@@ -107,7 +107,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public List<LoanApplication> findAll() {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id ORDER BY l.id DESC";
 
@@ -128,7 +128,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public List<LoanApplication> findByStatus(LoanStatus status) {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id WHERE l.status = ? ORDER BY l.id DESC";
 
@@ -184,6 +184,13 @@ public class JdbcLoanDao implements LoanDao {
             loan.setApplicationDate(ts.toLocalDateTime());
         }
         loan.setRejectionReason(rs.getString("rejection_reason"));
+
+        try {
+            loan.setEmiAmount(rs.getBigDecimal("emi_amount"));
+            loan.setTotalInterest(rs.getBigDecimal("total_interest"));
+            loan.setTotalPayable(rs.getBigDecimal("total_payable"));
+        } catch (SQLException ignored) {
+        }
 
         try {
             String fname = rs.getString("fname");
