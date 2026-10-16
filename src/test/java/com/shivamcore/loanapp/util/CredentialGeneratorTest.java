@@ -102,5 +102,7 @@ class CredentialGeneratorTest {
         public void deleteById(Long id) {}
         @Override
         public List<User> search(String field, String query) { return List.of(); }
+        @Override
+        public List<User> findAll() { return List.of(); }
     }
 }

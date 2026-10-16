@@ -29,6 +29,10 @@ public class User {
         this.lastModifiedDate = LocalDateTime.now();
     }
 
+    public User(String fname, String lname, String mobile, String email, String location, String username, String passwordHash) {
+        this(null, fname, lname, mobile, email, location, LocalDateTime.now(), Status.ACTIVE, username, passwordHash, Role.ROLE_USER, 0);
+    }
+
     public User(Long id, String fname, String lname, String mobile, String email, String location,
                 LocalDateTime lastModifiedDate, Status status, String username, String passwordHash, int failedAttempts) {
         this(id, fname, lname, mobile, email, location, lastModifiedDate, status, username, passwordHash, Role.ROLE_USER, failedAttempts);
@@ -164,6 +168,10 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role != null ? role : Role.ROLE_USER;
+    }
+
+    public void setUserRole(Role role) {
+        setRole(role);
     }
 
     public boolean isAdmin() {
