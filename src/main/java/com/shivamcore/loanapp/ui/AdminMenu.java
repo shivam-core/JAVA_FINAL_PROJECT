@@ -373,6 +373,11 @@ public class AdminMenu {
             System.out.println("Purpose:          " + l.getPurpose());
             System.out.println("Application Date: " + (l.getApplicationDate() != null ? l.getApplicationDate().format(fmt) : "N/A"));
             System.out.println("Status:           " + l.getStatus());
+            if (l.getEmiAmount() != null) {
+                System.out.printf("Monthly EMI:      ₹%.2f\n", l.getEmiAmount());
+                System.out.printf("Total Interest:   ₹%.2f\n", l.getTotalInterest());
+                System.out.printf("Total Payable:    ₹%.2f\n", l.getTotalPayable());
+            }
             if (l.getRejectionReason() != null && !l.getRejectionReason().isEmpty()) {
                 System.out.println("Rejection Reason: " + l.getRejectionReason());
             }
