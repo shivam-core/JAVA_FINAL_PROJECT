@@ -318,6 +318,21 @@ class LoginLockoutTest {
             usersById.put(user.getId(), copy(user));
         }
 
+        @Override
+        public void deleteById(Long id) {
+            usersById.remove(id);
+        }
+
+        @Override
+        public java.util.List<User> search(String field, String query) {
+            return usersById.values().stream().map(this::copy).collect(java.util.stream.Collectors.toList());
+        }
+
+        @Override
+        public java.util.List<User> findAll() {
+            return usersById.values().stream().map(this::copy).collect(java.util.stream.Collectors.toList());
+        }
+
         private User copy(User u) {
             return new User(
                     u.getId(), u.getFname(), u.getLname(), u.getMobile(), u.getEmail(),

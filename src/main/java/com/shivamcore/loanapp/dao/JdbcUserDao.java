@@ -11,6 +11,9 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -296,6 +299,97 @@ public class JdbcUserDao implements UserDao {
         } catch (SQLException e) {
             handleSqlException(e, "update user id: " + user.getId());
             throw new DataAccessException("Failed to update user", e);
+        }
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        String sql = "DELETE FROM users WHERE id = ?";
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            ps.executeUpdate();
+            logger.info("Deleted user with id: {}", id);
+        } catch (SQLException e) {
+            logger.error("Error deleting user with id: {}", id, e);
+            throw new DataAccessException("Failed to delete user", e);
+        }
+    }
+
+    @Override
+    public List<User> findAll() {
+        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+                "FROM users ORDER BY id ASC";
+        List<User> list = new ArrayList<>();
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapRowToUser(rs));
+            }
+            return list;
+        } catch (SQLException e) {
+            logger.error("Error fetching all users", e);
+            throw new DataAccessException("Failed to fetch all users", e);
+        }
+    }
+
+    @Override
+    public List<User> search(String field, String query) {
+        if (field == null || query == null) {
+            return Collections.emptyList();
+        }
+        String cleanQuery = query.trim();
+        String sql;
+        boolean isLike = true;
+
+        switch (field.toLowerCase().trim()) {
+            case "fname":
+            case "first name":
+            case "firstname":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE fname LIKE ? ORDER BY id ASC";
+                break;
+            case "lname":
+            case "last name":
+            case "lastname":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE lname LIKE ? ORDER BY id ASC";
+                break;
+            case "email":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE email LIKE ? ORDER BY id ASC";
+                break;
+            case "mobile":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE mobile = ? ORDER BY id ASC";
+                isLike = false;
+                break;
+            case "username":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE username LIKE ? ORDER BY id ASC";
+                break;
+            case "status":
+                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE status = ? ORDER BY id ASC";
+                isLike = false;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported search field: " + field);
+        }
+
+        List<User> list = new ArrayList<>();
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (isLike) {
+                ps.setString(1, "%" + cleanQuery + "%");
+            } else {
+                ps.setString(1, cleanQuery.toUpperCase());
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapRowToUser(rs));
+                }
+            }
+            return list;
+        } catch (SQLException e) {
+            logger.error("Error searching users with field '{}' and query '{}'", field, query, e);
+            throw new DataAccessException("Failed to search users", e);
         }
     }
 

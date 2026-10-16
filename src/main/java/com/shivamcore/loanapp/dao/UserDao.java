@@ -34,4 +34,10 @@ public interface UserDao {
     void updatePassword(Long userId, String newPasswordHash);
 
     void update(User user);
+
+    void deleteById(Long id);
+
+    java.util.List<User> search(String field, String query);
+
+    java.util.List<User> findAll();
 }
