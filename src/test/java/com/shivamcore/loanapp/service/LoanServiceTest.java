@@ -114,5 +114,17 @@ class LoanServiceTest {
                 l.setRejectionReason(rejectionReason);
             }
         }
+
+        @Override
+        public void approveLoan(Long id, java.math.BigDecimal emiAmount, java.math.BigDecimal totalInterest, java.math.BigDecimal totalPayable) {
+            LoanApplication l = map.get(id);
+            if (l != null) {
+                l.setStatus(LoanStatus.APPROVED);
+                l.setEmiAmount(emiAmount);
+                l.setTotalInterest(totalInterest);
+                l.setTotalPayable(totalPayable);
+                l.setRejectionReason(null);
+            }
+        }
     }
 }

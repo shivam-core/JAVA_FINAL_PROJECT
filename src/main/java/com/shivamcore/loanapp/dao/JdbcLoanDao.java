@@ -62,7 +62,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public Optional<LoanApplication> findById(Long id) {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id WHERE l.id = ?";
 
@@ -84,7 +84,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public List<LoanApplication> findByUserId(Long userId) {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id WHERE l.user_id = ? ORDER BY l.id DESC";
 
@@ -107,7 +107,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public List<LoanApplication> findAll() {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id ORDER BY l.id DESC";
 
@@ -128,7 +128,7 @@ public class JdbcLoanDao implements LoanDao {
 
     @Override
     public List<LoanApplication> findByStatus(LoanStatus status) {
-        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, " +
+        String sql = "SELECT l.id, l.user_id, l.loan_amount, l.loan_type, l.loan_duration_months, l.interest_rate, l.annual_income, l.purpose, l.status, l.application_date, l.rejection_reason, l.emi_amount, l.total_interest, l.total_payable, " +
                 "u.fname, u.lname, u.email, u.mobile " +
                 "FROM loan_applications l JOIN users u ON l.user_id = u.id WHERE l.status = ? ORDER BY l.id DESC";
 
@@ -167,6 +167,34 @@ public class JdbcLoanDao implements LoanDao {
         }
     }
 
+    @Override
+    public void approveLoan(Long id, BigDecimal emiAmount, BigDecimal totalInterest, BigDecimal totalPayable) {
+        String sql = "UPDATE loan_applications SET status = 'APPROVED', rejection_reason = NULL, emi_amount = ?, total_interest = ?, total_payable = ? WHERE id = ?";
+
+        try (Connection conn = databaseManager.getConnection()) {
+            boolean originalAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setBigDecimal(1, emiAmount);
+                ps.setBigDecimal(2, totalInterest);
+                ps.setBigDecimal(3, totalPayable);
+                ps.setLong(4, id);
+                ps.executeUpdate();
+                conn.commit();
+                logger.info("Successfully approved loan id {} with EMI {} in single transaction", id, emiAmount);
+            } catch (SQLException e) {
+                conn.rollback();
+                logger.error("Failed to approve loan id: {}, rolling back transaction", id, e);
+                throw new DataAccessException("Failed to approve loan application", e);
+            } finally {
+                conn.setAutoCommit(originalAutoCommit);
+            }
+        } catch (SQLException e) {
+            logger.error("Database connection error during loan approval: {}", id, e);
+            throw new DataAccessException("Database error during loan approval", e);
+        }
+    }
+
     private LoanApplication mapRowToLoan(ResultSet rs) throws SQLException {
         LoanApplication loan = new LoanApplication();
         loan.setId(rs.getLong("id"));
@@ -184,6 +212,13 @@ public class JdbcLoanDao implements LoanDao {
             loan.setApplicationDate(ts.toLocalDateTime());
         }
         loan.setRejectionReason(rs.getString("rejection_reason"));
+
+        try {
+            loan.setEmiAmount(rs.getBigDecimal("emi_amount"));
+            loan.setTotalInterest(rs.getBigDecimal("total_interest"));
+            loan.setTotalPayable(rs.getBigDecimal("total_payable"));
+        } catch (SQLException ignored) {
+        }
 
         try {
             String fname = rs.getString("fname");

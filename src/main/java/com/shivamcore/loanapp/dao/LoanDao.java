@@ -16,4 +16,5 @@ public interface LoanDao {
     List<LoanApplication> findAll();
     List<LoanApplication> findByStatus(LoanStatus status);
     void updateStatus(Long id, LoanStatus newStatus, String rejectionReason);
+    void approveLoan(Long id, java.math.BigDecimal emiAmount, java.math.BigDecimal totalInterest, java.math.BigDecimal totalPayable);
 }

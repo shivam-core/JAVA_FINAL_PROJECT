@@ -147,19 +147,21 @@ public class UserMenu {
                 return;
             }
 
-            System.out.printf("%-6s | %-12s | %-14s | %-10s | %-8s | %-10s | %-16s | %-10s\n",
-                    "ID", "Type", "Amount", "Duration", "Rate", "Status", "Date", "Remarks");
-            System.out.println("--------------------------------------------------------------------------------------------------");
+            System.out.printf("%-6s | %-12s | %-14s | %-10s | %-8s | %-10s | %-14s | %-16s | %-10s\n",
+                    "ID", "Type", "Amount", "Duration", "Rate", "Status", "Monthly EMI", "Date", "Remarks");
+            System.out.println("-----------------------------------------------------------------------------------------------------------------");
             for (LoanApplication l : loans) {
                 String dateStr = l.getApplicationDate() != null ? l.getApplicationDate().format(DATE_FMT) : "N/A";
                 String remarks = l.getRemarks() != null ? l.getRemarks() : "";
-                System.out.printf("%-6d | %-12s | ₹%-13.2f | %-7d mo | %-7.2f%% | %-10s | %-16s | %-10s\n",
+                String emiStr = l.getEmiAmount() != null ? String.format("₹%.2f", l.getEmiAmount()) : "-";
+                System.out.printf("%-6d | %-12s | ₹%-13.2f | %-7d mo | %-7.2f%% | %-10s | %-14s | %-16s | %-10s\n",
                         l.getId(),
                         l.getLoanType(),
                         l.getLoanAmount(),
                         l.getLoanDurationMonths(),
                         l.getInterestRate(),
                         l.getStatus(),
+                        emiStr,
                         dateStr,
                         remarks);
             }
