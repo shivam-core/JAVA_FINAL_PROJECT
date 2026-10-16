@@ -17,15 +17,21 @@ import java.util.List;
 public class UserMenu {
 
     private final LoanService loanService;
+    private final com.shivamcore.loanapp.service.InterestRateService interestRateService;
     private final ConsoleInput input;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public UserMenu(ConsoleInput input) {
-        this(null, input);
+        this(null, null, input);
     }
 
     public UserMenu(LoanService loanService, ConsoleInput input) {
+        this(loanService, null, input);
+    }
+
+    public UserMenu(LoanService loanService, com.shivamcore.loanapp.service.InterestRateService interestRateService, ConsoleInput input) {
         this.loanService = loanService;
+        this.interestRateService = interestRateService != null ? interestRateService : new com.shivamcore.loanapp.service.InterestRateService();
         this.input = input;
     }
 
@@ -78,8 +84,10 @@ public class UserMenu {
         // 1. Loan Type
         LoanType type = promptLoanType();
 
-        // Interest rate preview
-        BigDecimal rate = type.getDefaultInterestRate();
+        // Interest rate preview: CIBIL-adjusted if available, else default midpoint
+        BigDecimal rate = (user.getCibilScore() != null && interestRateService != null)
+                ? interestRateService.calculate(type, user.getCibilScore())
+                : type.getDefaultInterestRate();
         System.out.printf("Applicable Interest Rate: %.2f%%\n", rate);
 
         // 2. Loan Amount

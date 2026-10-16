@@ -21,6 +21,16 @@ public enum LoanType {
         return defaultInterestRate;
     }
 
+    public String getDisplayName() {
+        switch (this) {
+            case HOME: return "Home Loan";
+            case PERSONAL: return "Personal Loan";
+            case EDUCATION: return "Education Loan";
+            case VEHICLE: return "Vehicle Loan";
+            default: return name();
+        }
+    }
+
     /**
      * Parses user input, mapping 'CAR' to VEHICLE per Decision 1.
      */

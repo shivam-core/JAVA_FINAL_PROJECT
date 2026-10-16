@@ -18,24 +18,38 @@ public class MainMenu {
     private final AuthService authService;
     private final com.shivamcore.loanapp.service.AdminService adminService;
     private final com.shivamcore.loanapp.service.LoanService loanService;
+    private final com.shivamcore.loanapp.service.CibilService cibilService;
+    private final com.shivamcore.loanapp.service.InterestRateService interestRateService;
+    private final com.shivamcore.loanapp.service.EmailService emailService;
     private final ConsoleInput input;
     private final UserMenu userMenu;
 
     public MainMenu(UserService userService, AuthService authService, ConsoleInput input) {
-        this(userService, authService, null, null, input);
+        this(userService, authService, null, null, null, null, null, input);
     }
 
     public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, ConsoleInput input) {
-        this(userService, authService, adminService, null, input);
+        this(userService, authService, adminService, null, null, null, null, input);
     }
 
     public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, com.shivamcore.loanapp.service.LoanService loanService, ConsoleInput input) {
+        this(userService, authService, adminService, loanService, null, null, null, input);
+    }
+
+    public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, com.shivamcore.loanapp.service.LoanService loanService, com.shivamcore.loanapp.service.CibilService cibilService, com.shivamcore.loanapp.service.InterestRateService interestRateService, ConsoleInput input) {
+        this(userService, authService, adminService, loanService, cibilService, interestRateService, null, input);
+    }
+
+    public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, com.shivamcore.loanapp.service.LoanService loanService, com.shivamcore.loanapp.service.CibilService cibilService, com.shivamcore.loanapp.service.InterestRateService interestRateService, com.shivamcore.loanapp.service.EmailService emailService, ConsoleInput input) {
         this.userService = userService;
         this.authService = authService;
         this.adminService = adminService;
         this.loanService = loanService;
+        this.cibilService = cibilService != null ? cibilService : new com.shivamcore.loanapp.service.CibilService(userService != null ? userService.getUserDao() : null);
+        this.interestRateService = interestRateService != null ? interestRateService : new com.shivamcore.loanapp.service.InterestRateService();
+        this.emailService = emailService;
         this.input = input;
-        this.userMenu = new UserMenu(loanService, input);
+        this.userMenu = new UserMenu(loanService, this.interestRateService, input);
     }
 
     /**
@@ -57,6 +71,12 @@ public class MainMenu {
                 case 3:
                     handleForgotPassword();
                     break;
+                case 4:
+                    handleInterestRateCalculator();
+                    break;
+                case 5:
+                    handleGuestCibilAndLoan();
+                    break;
                 case 0:
                     System.out.println("Thank you for using the Loan Application System. Goodbye!");
                     running = false;
@@ -75,6 +95,8 @@ public class MainMenu {
         System.out.println("1. Register");
         System.out.println("2. Login");
         System.out.println("3. Forgot Password");
+        System.out.println("4. Interest Rate Calculator");
+        System.out.println("5. Check Eligibility & Apply for Loan");
         System.out.println("0. Exit");
         System.out.println("==========================================");
     }
@@ -221,6 +243,152 @@ public class MainMenu {
                 System.out.println("Error: " + e.getMessage());
                 System.out.println("Please try again.");
             }
+        }
+    }
+
+    private void handleInterestRateCalculator() {
+        System.out.println();
+        System.out.println("--- Interest Rate Calculator ---");
+
+        // 1. PAN Card
+        String pan = promptValidatedPan();
+
+        // 2. Loan Type
+        com.shivamcore.loanapp.model.LoanType type = promptLoanType();
+
+        // 3. CIBIL Score
+        int cibil = cibilService.getOrGenerateCibil(pan);
+
+        // 4. Rate calculation
+        java.math.BigDecimal rate = interestRateService.calculate(type, cibil);
+
+        // 5. Output line format
+        System.out.println();
+        System.out.println(interestRateService.formatSummary(pan, cibil, type, rate));
+    }
+
+    private String promptValidatedPan() {
+        while (true) {
+            String pan = input.readLine("Enter PAN Card Number (e.g. ABCDE1234F): ").trim().toUpperCase();
+            if (Validator.isValidPan(pan)) {
+                return pan;
+            }
+            System.out.println("Invalid PAN format. Please enter a valid PAN.");
+        }
+    }
+
+    private com.shivamcore.loanapp.model.LoanType promptLoanType() {
+        while (true) {
+            System.out.println("Select Loan Type:");
+            System.out.println("1. Home Loan");
+            System.out.println("2. Personal Loan");
+            System.out.println("3. Education Loan");
+            System.out.println("4. Vehicle / Car Loan");
+            String choice = input.readLine("Enter choice (1-4 or name): ").trim();
+            if (choice.equals("1") || choice.equalsIgnoreCase("home")) return com.shivamcore.loanapp.model.LoanType.HOME;
+            if (choice.equals("2") || choice.equalsIgnoreCase("personal")) return com.shivamcore.loanapp.model.LoanType.PERSONAL;
+            if (choice.equals("3") || choice.equalsIgnoreCase("education")) return com.shivamcore.loanapp.model.LoanType.EDUCATION;
+            if (choice.equals("4") || choice.equalsIgnoreCase("vehicle") || choice.equalsIgnoreCase("car")) return com.shivamcore.loanapp.model.LoanType.VEHICLE;
+            try {
+                return com.shivamcore.loanapp.model.LoanType.fromString(choice);
+            } catch (IllegalArgumentException e) {
+                System.out.println("Invalid loan type selected.");
+            }
+        }
+    }
+
+    private void handleGuestCibilAndLoan() {
+        System.out.println();
+        System.out.println("--- Check Eligibility & Apply for Loan ---");
+
+        com.shivamcore.loanapp.dao.UserDao userDao = userService != null ? userService.getUserDao() : null;
+
+        // 1. Collect and validate details
+        String fname = promptValidatedField(
+                "Enter First Name: ",
+                val -> Validator.validateName("First Name", val)
+        );
+
+        String lname = promptValidatedField(
+                "Enter Last Name: ",
+                val -> Validator.validateName("Last Name", val)
+        );
+
+        String mobile = promptValidatedField(
+                "Enter Mobile Number (10 digits): ",
+                Validator::validateMobile
+        );
+
+        String email = promptValidatedField(
+                "Enter Email Address: ",
+                val -> {
+                    Validator.validateEmail(val);
+                    if (userDao != null && userDao.existsByEmail(val.trim())) {
+                        throw new DuplicateResourceException("Email '" + val.trim() + "' is already registered.");
+                    }
+                }
+        );
+
+        String location = promptValidatedField(
+                "Enter Location: ",
+                Validator::validateLocation
+        );
+
+        String pan = promptValidatedField(
+                "Enter PAN Card Number (e.g. ABCDE1234F): ",
+                val -> {
+                    Validator.validatePan(val);
+                    if (userDao != null && userDao.existsByPan(val.trim().toUpperCase())) {
+                        throw new DuplicateResourceException("PAN '" + val.trim().toUpperCase() + "' is already registered.");
+                    }
+                }
+        ).toUpperCase();
+
+        // 2. Generate username and temporary password
+        String username = com.shivamcore.loanapp.util.CredentialGenerator.generateUsername(fname, lname, mobile, userDao);
+        String rawPassword = com.shivamcore.loanapp.util.CredentialGenerator.generatePassword();
+        String passwordHash = com.shivamcore.loanapp.util.PasswordHasher.hash(rawPassword);
+
+        // 3. Create the user
+        User user = new User(fname, lname, mobile, email, location, username, passwordHash);
+        user.setPanCard(pan);
+        user.setUserRole(com.shivamcore.loanapp.model.Role.ROLE_USER);
+        user.setStatus(com.shivamcore.loanapp.model.Status.ACTIVE);
+
+        if (userDao != null) {
+            user = userDao.save(user);
+        }
+
+        System.out.println();
+        System.out.println(">> Account created successfully!");
+        System.out.println("Username: " + username);
+
+        // 4. Send email with credentials
+        if (emailService != null) {
+            boolean sent = emailService.sendCredentialsEmail(email, fname, username, rawPassword);
+            if (sent) {
+                System.out.println("Credentials have been dispatched to: " + email);
+            } else {
+                System.out.println("Note: Email dispatch failed. Temporary password: " + rawPassword);
+            }
+        }
+
+        // 5. Only after the email attempt, generate, store, and display CIBIL score
+        int cibil = cibilService != null ? cibilService.getOrGenerateCibil(pan) : 750;
+        user.setCibilScore(cibil);
+        if (userDao != null) {
+            userDao.update(user);
+        }
+
+        System.out.println();
+        System.out.println(">> Your CIBIL Score is: " + cibil);
+
+        // 6. Jump to loan flow if user wishes
+        String applyChoice = input.readLine("Would you like to apply for a loan now? (y/n): ").trim();
+        if (applyChoice.equalsIgnoreCase("y") || applyChoice.equalsIgnoreCase("yes")) {
+            userMenu.handleApplyLoan(user);
+        } else {
+            System.out.println("You can log in anytime with username '" + username + "' to apply for loans.");
         }
     }
 

@@ -260,6 +260,11 @@ class AdminServiceTest {
         }
 
         @Override
+        public Optional<User> findByPan(String pan) {
+            return map.values().stream().filter(u -> pan.equalsIgnoreCase(u.getPanCard())).findFirst();
+        }
+
+        @Override
         public boolean existsByUsername(String username) {
             return map.values().stream().anyMatch(u -> u.getUsername().equalsIgnoreCase(username));
         }
@@ -267,6 +272,11 @@ class AdminServiceTest {
         @Override
         public boolean existsByEmail(String email) {
             return map.values().stream().anyMatch(u -> u.getEmail().equalsIgnoreCase(email));
+        }
+
+        @Override
+        public boolean existsByPan(String pan) {
+            return map.values().stream().anyMatch(u -> pan.equalsIgnoreCase(u.getPanCard()));
         }
 
         @Override

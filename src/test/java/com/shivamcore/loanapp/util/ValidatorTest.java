@@ -172,4 +172,42 @@ class ValidatorTest {
             assertTrue(ex.getMessage().contains("Invalid email format"));
         }
     }
+
+    @Nested
+    @DisplayName("PAN Validation Tests")
+    class PanTests {
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "ABCDE1234F",
+                "abcde1234f",
+                "XYZPK9876Z",
+                "AAAAA0000A"
+        })
+        void validPan(String pan) {
+            assertTrue(Validator.isValidPan(pan));
+            assertDoesNotThrow(() -> Validator.validatePan(pan));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "ABCDE1234",    // 9 chars
+                "ABCDE12345F",  // 11 chars
+                "12345ABCDE",   // digits first
+                "ABCDE12345",   // ends with digit
+                "ABC123456F",   // only 3 letters
+                "",
+                "   "
+        })
+        void invalidPan(String pan) {
+            assertFalse(Validator.isValidPan(pan));
+            ValidationException ex = assertThrows(ValidationException.class, () -> Validator.validatePan(pan));
+            assertEquals("Invalid PAN format. Please enter a valid PAN.", ex.getMessage());
+        }
+
+        @Test
+        void nullPan() {
+            assertFalse(Validator.isValidPan(null));
+            assertThrows(ValidationException.class, () -> Validator.validatePan(null));
+        }
+    }
 }

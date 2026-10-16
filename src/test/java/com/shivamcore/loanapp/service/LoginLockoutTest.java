@@ -261,6 +261,14 @@ class LoginLockoutTest {
         }
 
         @Override
+        public Optional<User> findByPan(String pan) {
+            return usersById.values().stream()
+                    .filter(u -> pan.equalsIgnoreCase(u.getPanCard()))
+                    .findFirst()
+                    .map(this::copy);
+        }
+
+        @Override
         public boolean existsByUsername(String username) {
             return usersById.values().stream()
                     .anyMatch(u -> u.getUsername().equalsIgnoreCase(username));
@@ -270,6 +278,12 @@ class LoginLockoutTest {
         public boolean existsByEmail(String email) {
             return usersById.values().stream()
                     .anyMatch(u -> u.getEmail().equalsIgnoreCase(email));
+        }
+
+        @Override
+        public boolean existsByPan(String pan) {
+            return usersById.values().stream()
+                    .anyMatch(u -> pan.equalsIgnoreCase(u.getPanCard()));
         }
 
         @Override

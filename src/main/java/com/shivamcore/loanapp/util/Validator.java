@@ -20,9 +20,23 @@ public final class Validator {
     private static final Pattern DIGIT_PATTERN = Pattern.compile("[0-9]");
     private static final Pattern SPECIAL_CHAR_PATTERN = Pattern.compile("[^A-Za-z0-9]");
     private static final Pattern LETTERS_ONLY_PATTERN = Pattern.compile("^[A-Za-z]+$");
+    private static final Pattern PAN_PATTERN = Pattern.compile("^[A-Z]{5}[0-9]{4}[A-Z]$");
 
     private Validator() {
         // Utility class
+    }
+
+    public static boolean isValidPan(String pan) {
+        if (pan == null || pan.trim().isEmpty()) {
+            return false;
+        }
+        return PAN_PATTERN.matcher(pan.trim().toUpperCase()).matches();
+    }
+
+    public static void validatePan(String pan) {
+        if (!isValidPan(pan)) {
+            throw new ValidationException("Invalid PAN format. Please enter a valid PAN.");
+        }
     }
 
     public static boolean isValidEmail(String email) {

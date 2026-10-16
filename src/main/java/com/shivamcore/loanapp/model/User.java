@@ -13,6 +13,8 @@ public class User {
     private String mobile;
     private String email;
     private String location;
+    private String panCard;
+    private Integer cibilScore;
     private LocalDateTime lastModifiedDate;
     private Status status;
     private String username;
@@ -25,6 +27,10 @@ public class User {
         this.role = Role.ROLE_USER;
         this.failedAttempts = 0;
         this.lastModifiedDate = LocalDateTime.now();
+    }
+
+    public User(String fname, String lname, String mobile, String email, String location, String username, String passwordHash) {
+        this(null, fname, lname, mobile, email, location, LocalDateTime.now(), Status.ACTIVE, username, passwordHash, Role.ROLE_USER, 0);
     }
 
     public User(Long id, String fname, String lname, String mobile, String email, String location,
@@ -100,6 +106,22 @@ public class User {
         this.location = location;
     }
 
+    public String getPanCard() {
+        return panCard;
+    }
+
+    public void setPanCard(String panCard) {
+        this.panCard = panCard;
+    }
+
+    public Integer getCibilScore() {
+        return cibilScore;
+    }
+
+    public void setCibilScore(Integer cibilScore) {
+        this.cibilScore = cibilScore;
+    }
+
     public LocalDateTime getLastModifiedDate() {
         return lastModifiedDate;
     }
@@ -146,6 +168,10 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role != null ? role : Role.ROLE_USER;
+    }
+
+    public void setUserRole(Role role) {
+        setRole(role);
     }
 
     public boolean isAdmin() {
