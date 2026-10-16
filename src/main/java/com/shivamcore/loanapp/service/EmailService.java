@@ -108,4 +108,15 @@ public class EmailService {
         String body = "Dear " + fname + ", we regret to inform you that your loan application has been rejected. Reason: " + reason + ". Please contact support for more details.";
         return sendEmail(toEmail, subject, body);
     }
+
+    // Stage 4 guest credential notification template
+    public boolean sendCredentialsEmail(String toEmail, String fname, String username, String password) {
+        String subject = "Your Username and Password for Loan Application is";
+        String body = "Dear " + fname + ",\n\n" +
+                "Your account has been successfully created for your loan application.\n" +
+                "Username: " + username + "\n" +
+                "Password: " + password + "\n\n" +
+                "Please keep your credentials safe.";
+        return sendEmail(toEmail, subject, body);
+    }
 }

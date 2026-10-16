@@ -41,7 +41,7 @@ public class Main {
             com.shivamcore.loanapp.service.InterestRateService interestRateService = new com.shivamcore.loanapp.service.InterestRateService();
 
             ConsoleInput consoleInput = new ConsoleInput();
-            MainMenu mainMenu = new MainMenu(userService, authService, adminService, loanService, cibilService, interestRateService, consoleInput);
+            MainMenu mainMenu = new MainMenu(userService, authService, adminService, loanService, cibilService, interestRateService, emailService, consoleInput);
 
             mainMenu.run();
         } catch (Exception e) {
