@@ -95,4 +95,17 @@ public class EmailService {
         String body = "Dear " + fname + ", your account details have been updated. If you did not request this change, please contact support immediately.";
         return sendEmail(toEmail, subject, body);
     }
+
+    // Stage 3 loan notification templates
+    public boolean sendLoanApprovedEmail(String toEmail, String fname, java.math.BigDecimal loanAmount) {
+        String subject = "Your Loan Application has been Approved!";
+        String body = "Dear " + fname + ", your loan application for " + loanAmount + " has been approved. Please check your dashboard for further details.";
+        return sendEmail(toEmail, subject, body);
+    }
+
+    public boolean sendLoanRejectedEmail(String toEmail, String fname, String reason) {
+        String subject = "Your Loan Application has been Rejected";
+        String body = "Dear " + fname + ", we regret to inform you that your loan application has been rejected. Reason: " + reason + ". Please contact support for more details.";
+        return sendEmail(toEmail, subject, body);
+    }
 }

@@ -156,6 +156,57 @@ class AdminServiceTest {
         assertThrows(AccessDeniedException.class, () -> adminService.getAllLoans(regularUser));
     }
 
+    @Test
+    @DisplayName("Admin can approve pending loan and transition is enforced")
+    void testAdminApproveLoan() {
+        com.shivamcore.loanapp.model.LoanApplication loan = new com.shivamcore.loanapp.model.LoanApplication();
+        loan.setUserId(regularUser.getId());
+        loan.setLoanAmount(new java.math.BigDecimal("250000.00"));
+        loan.setLoanType(com.shivamcore.loanapp.model.LoanType.PERSONAL);
+        loan.setLoanDurationMonths(12);
+        loan.setInterestRate(new java.math.BigDecimal("10.50"));
+        loan.setAnnualIncome(new java.math.BigDecimal("800000.00"));
+        loan.setPurpose("Medical");
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.PENDING);
+        loanDao.save(loan);
+
+        com.shivamcore.loanapp.model.LoanApplication approved = adminService.approveLoan(adminUser, loan.getId());
+        assertEquals(com.shivamcore.loanapp.model.LoanStatus.APPROVED, approved.getStatus());
+
+        // Already decided loan cannot transition again
+        assertThrows(ValidationException.class, () -> adminService.approveLoan(adminUser, loan.getId()));
+        assertThrows(ValidationException.class, () -> adminService.rejectLoan(adminUser, loan.getId(), "Too late"));
+
+        // Non-admin cannot approve
+        assertThrows(AccessDeniedException.class, () -> adminService.approveLoan(regularUser, loan.getId()));
+    }
+
+    @Test
+    @DisplayName("Admin can reject pending loan with reason")
+    void testAdminRejectLoan() {
+        com.shivamcore.loanapp.model.LoanApplication loan = new com.shivamcore.loanapp.model.LoanApplication();
+        loan.setUserId(regularUser.getId());
+        loan.setLoanAmount(new java.math.BigDecimal("500000.00"));
+        loan.setLoanType(com.shivamcore.loanapp.model.LoanType.HOME);
+        loan.setLoanDurationMonths(36);
+        loan.setInterestRate(new java.math.BigDecimal("7.50"));
+        loan.setAnnualIncome(new java.math.BigDecimal("300000.00"));
+        loan.setPurpose("House purchase");
+        loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.PENDING);
+        loanDao.save(loan);
+
+        // Reject requires non-empty reason
+        assertThrows(ValidationException.class, () -> adminService.rejectLoan(adminUser, loan.getId(), ""));
+        assertThrows(ValidationException.class, () -> adminService.rejectLoan(adminUser, loan.getId(), "   "));
+
+        com.shivamcore.loanapp.model.LoanApplication rejected = adminService.rejectLoan(adminUser, loan.getId(), "Insufficient income");
+        assertEquals(com.shivamcore.loanapp.model.LoanStatus.REJECTED, rejected.getStatus());
+        assertEquals("Insufficient income", rejected.getRejectionReason());
+
+        // Already decided loan cannot transition again
+        assertThrows(ValidationException.class, () -> adminService.approveLoan(adminUser, loan.getId()));
+    }
+
     private static class InMemoryAuditLogDao implements AuditLogDao {
         private final List<AuditLog> logs = new ArrayList<>();
         private final AtomicLong idGen = new AtomicLong(1);

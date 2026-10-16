@@ -278,6 +278,8 @@ public class AdminMenu {
             System.out.println("1. List All Loan Applications");
             System.out.println("2. Filter Loans by Status");
             System.out.println("3. View Loan Details");
+            System.out.println("4. Approve Loan");
+            System.out.println("5. Reject Loan");
             System.out.println("0. Back to Admin Dashboard");
             System.out.print("Please enter your choice: ");
 
@@ -291,6 +293,12 @@ public class AdminMenu {
                     break;
                 case "3":
                     handleViewLoanDetails();
+                    break;
+                case "4":
+                    handleApproveLoan();
+                    break;
+                case "5":
+                    handleRejectLoan();
                     break;
                 case "0":
                     inLoanMenu = false;
@@ -370,6 +378,81 @@ public class AdminMenu {
             }
         } catch (NumberFormatException e) {
             System.out.println("Invalid Loan ID format.");
+        }
+    }
+
+    private void handleApproveLoan() {
+        System.out.print("\nEnter Loan Application ID to approve: ");
+        String idStr = scanner.nextLine().trim();
+        Long loanId;
+        try {
+            loanId = Long.parseLong(idStr);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Loan ID format.");
+            return;
+        }
+
+        Optional<com.shivamcore.loanapp.model.LoanApplication> opt = adminService.getLoanById(currentAdmin, loanId);
+        if (opt.isEmpty()) {
+            System.out.println("Loan application not found with ID: " + loanId);
+            return;
+        }
+        com.shivamcore.loanapp.model.LoanApplication l = opt.get();
+        System.out.printf("Loan #%d for %s (Amount: ₹%.2f, Status: %s)\n",
+                l.getId(), (l.getApplicantName() != null ? l.getApplicantName() : "User #" + l.getUserId()), l.getLoanAmount(), l.getStatus());
+
+        System.out.print("Are you sure you want to approve this loan? (yes/no): ");
+        String confirm = scanner.nextLine().trim();
+        if ("yes".equalsIgnoreCase(confirm)) {
+            try {
+                adminService.approveLoan(currentAdmin, loanId);
+                System.out.println(">> Loan application #" + loanId + " successfully APPROVED and notification email dispatched.");
+            } catch (ValidationException e) {
+                System.out.println("Approval failed: " + e.getMessage());
+            }
+        } else {
+            System.out.println("Approval cancelled.");
+        }
+    }
+
+    private void handleRejectLoan() {
+        System.out.print("\nEnter Loan Application ID to reject: ");
+        String idStr = scanner.nextLine().trim();
+        Long loanId;
+        try {
+            loanId = Long.parseLong(idStr);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Loan ID format.");
+            return;
+        }
+
+        Optional<com.shivamcore.loanapp.model.LoanApplication> opt = adminService.getLoanById(currentAdmin, loanId);
+        if (opt.isEmpty()) {
+            System.out.println("Loan application not found with ID: " + loanId);
+            return;
+        }
+        com.shivamcore.loanapp.model.LoanApplication l = opt.get();
+        System.out.printf("Loan #%d for %s (Amount: ₹%.2f, Status: %s)\n",
+                l.getId(), (l.getApplicantName() != null ? l.getApplicantName() : "User #" + l.getUserId()), l.getLoanAmount(), l.getStatus());
+
+        System.out.print("Enter reason for rejection: ");
+        String reason = scanner.nextLine().trim();
+        if (reason.isEmpty()) {
+            System.out.println("Rejection reason cannot be empty. Rejection aborted.");
+            return;
+        }
+
+        System.out.print("Are you sure you want to reject this loan? (yes/no): ");
+        String confirm = scanner.nextLine().trim();
+        if ("yes".equalsIgnoreCase(confirm)) {
+            try {
+                adminService.rejectLoan(currentAdmin, loanId, reason);
+                System.out.println(">> Loan application #" + loanId + " successfully REJECTED and notification email dispatched.");
+            } catch (ValidationException e) {
+                System.out.println("Rejection failed: " + e.getMessage());
+            }
+        } else {
+            System.out.println("Rejection cancelled.");
         }
     }
 }
