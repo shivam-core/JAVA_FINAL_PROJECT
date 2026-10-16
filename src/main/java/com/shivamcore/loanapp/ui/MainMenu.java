@@ -18,22 +18,30 @@ public class MainMenu {
     private final AuthService authService;
     private final com.shivamcore.loanapp.service.AdminService adminService;
     private final com.shivamcore.loanapp.service.LoanService loanService;
+    private final com.shivamcore.loanapp.service.CibilService cibilService;
+    private final com.shivamcore.loanapp.service.InterestRateService interestRateService;
     private final ConsoleInput input;
     private final UserMenu userMenu;
 
     public MainMenu(UserService userService, AuthService authService, ConsoleInput input) {
-        this(userService, authService, null, null, input);
+        this(userService, authService, null, null, null, null, input);
     }
 
     public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, ConsoleInput input) {
-        this(userService, authService, adminService, null, input);
+        this(userService, authService, adminService, null, null, null, input);
     }
 
     public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, com.shivamcore.loanapp.service.LoanService loanService, ConsoleInput input) {
+        this(userService, authService, adminService, loanService, null, null, input);
+    }
+
+    public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, com.shivamcore.loanapp.service.LoanService loanService, com.shivamcore.loanapp.service.CibilService cibilService, com.shivamcore.loanapp.service.InterestRateService interestRateService, ConsoleInput input) {
         this.userService = userService;
         this.authService = authService;
         this.adminService = adminService;
         this.loanService = loanService;
+        this.cibilService = cibilService != null ? cibilService : new com.shivamcore.loanapp.service.CibilService(userService != null ? userService.getUserDao() : null);
+        this.interestRateService = interestRateService != null ? interestRateService : new com.shivamcore.loanapp.service.InterestRateService();
         this.input = input;
         this.userMenu = new UserMenu(loanService, input);
     }
@@ -57,6 +65,9 @@ public class MainMenu {
                 case 3:
                     handleForgotPassword();
                     break;
+                case 4:
+                    handleInterestRateCalculator();
+                    break;
                 case 0:
                     System.out.println("Thank you for using the Loan Application System. Goodbye!");
                     running = false;
@@ -75,6 +86,7 @@ public class MainMenu {
         System.out.println("1. Register");
         System.out.println("2. Login");
         System.out.println("3. Forgot Password");
+        System.out.println("4. Interest Rate Calculator");
         System.out.println("0. Exit");
         System.out.println("==========================================");
     }
@@ -220,6 +232,57 @@ public class MainMenu {
             } catch (ValidationException e) {
                 System.out.println("Error: " + e.getMessage());
                 System.out.println("Please try again.");
+            }
+        }
+    }
+
+    private void handleInterestRateCalculator() {
+        System.out.println();
+        System.out.println("--- Interest Rate Calculator ---");
+
+        // 1. PAN Card
+        String pan = promptValidatedPan();
+
+        // 2. Loan Type
+        com.shivamcore.loanapp.model.LoanType type = promptLoanType();
+
+        // 3. CIBIL Score
+        int cibil = cibilService.getOrGenerateCibil(pan);
+
+        // 4. Rate calculation
+        java.math.BigDecimal rate = interestRateService.calculate(type, cibil);
+
+        // 5. Output line format
+        System.out.println();
+        System.out.println(interestRateService.formatSummary(pan, cibil, type, rate));
+    }
+
+    private String promptValidatedPan() {
+        while (true) {
+            String pan = input.readLine("Enter PAN Card Number (e.g. ABCDE1234F): ").trim().toUpperCase();
+            if (Validator.isValidPan(pan)) {
+                return pan;
+            }
+            System.out.println("Invalid PAN format. Please enter a valid PAN.");
+        }
+    }
+
+    private com.shivamcore.loanapp.model.LoanType promptLoanType() {
+        while (true) {
+            System.out.println("Select Loan Type:");
+            System.out.println("1. Home Loan");
+            System.out.println("2. Personal Loan");
+            System.out.println("3. Education Loan");
+            System.out.println("4. Vehicle / Car Loan");
+            String choice = input.readLine("Enter choice (1-4 or name): ").trim();
+            if (choice.equals("1") || choice.equalsIgnoreCase("home")) return com.shivamcore.loanapp.model.LoanType.HOME;
+            if (choice.equals("2") || choice.equalsIgnoreCase("personal")) return com.shivamcore.loanapp.model.LoanType.PERSONAL;
+            if (choice.equals("3") || choice.equalsIgnoreCase("education")) return com.shivamcore.loanapp.model.LoanType.EDUCATION;
+            if (choice.equals("4") || choice.equalsIgnoreCase("vehicle") || choice.equalsIgnoreCase("car")) return com.shivamcore.loanapp.model.LoanType.VEHICLE;
+            try {
+                return com.shivamcore.loanapp.model.LoanType.fromString(choice);
+            } catch (IllegalArgumentException e) {
+                System.out.println("Invalid loan type selected.");
             }
         }
     }

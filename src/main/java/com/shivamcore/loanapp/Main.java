@@ -37,8 +37,11 @@ public class Main {
             com.shivamcore.loanapp.service.AdminSeeder adminSeeder = new com.shivamcore.loanapp.service.AdminSeeder(userDao, configLoader);
             adminSeeder.seedAdminIfAbsent();
 
+            com.shivamcore.loanapp.service.CibilService cibilService = new com.shivamcore.loanapp.service.CibilService(userDao);
+            com.shivamcore.loanapp.service.InterestRateService interestRateService = new com.shivamcore.loanapp.service.InterestRateService();
+
             ConsoleInput consoleInput = new ConsoleInput();
-            MainMenu mainMenu = new MainMenu(userService, authService, adminService, loanService, consoleInput);
+            MainMenu mainMenu = new MainMenu(userService, authService, adminService, loanService, cibilService, interestRateService, consoleInput);
 
             mainMenu.run();
         } catch (Exception e) {
