@@ -6,6 +6,7 @@ import com.shivamcore.loanapp.exception.ValidationException;
 import com.shivamcore.loanapp.model.Status;
 import com.shivamcore.loanapp.model.User;
 import com.shivamcore.loanapp.util.PasswordHasher;
+import com.shivamcore.loanapp.util.Validator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +91,43 @@ public class AuthService {
 
         logger.info("Authentication successful for user id: {}, username: {}", user.getId(), user.getUsername());
         return user;
+    }
+
+    /**
+     * Resets a user's password using username or email as identifier.
+     * Blocked for INACTIVE accounts to prevent bypassing lockout (Decision 6).
+     *
+     * @param identifier  Username or email
+     * @param newPassword New plaintext password satisfying password policy
+     */
+    public void resetPassword(String identifier, String newPassword) {
+        if (identifier == null || identifier.trim().isEmpty()) {
+            throw new ValidationException("Username or Email cannot be empty.");
+        }
+
+        String cleanIdentifier = identifier.trim();
+        Optional<User> userOpt = userDao.findByIdentifier(cleanIdentifier);
+
+        if (userOpt.isEmpty()) {
+            logger.warn("Password reset failed: user not found for identifier: {}", cleanIdentifier);
+            throw new AuthenticationException("User not found.");
+        }
+
+        User user = userOpt.get();
+
+        // Decision 6: Block reset for INACTIVE/locked accounts
+        if (user.getStatus() == Status.INACTIVE) {
+            logger.warn("Password reset rejected: account is INACTIVE/locked for user id: {}", user.getId());
+            throw new AuthenticationException("Password reset is not permitted for locked or inactive accounts. Please contact support.");
+        }
+
+        // Validate new password policy
+        Validator.validatePassword(newPassword);
+
+        // Hash and persist
+        String newHash = PasswordHasher.hash(newPassword);
+        userDao.updatePassword(user.getId(), newHash);
+        logger.info("Password successfully reset for user id: {}, username: {}", user.getId(), user.getUsername());
     }
 
     public UserDao getUserDao() {

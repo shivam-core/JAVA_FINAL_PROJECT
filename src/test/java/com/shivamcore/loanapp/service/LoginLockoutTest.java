@@ -143,6 +143,50 @@ class LoginLockoutTest {
         assertThrows(ValidationException.class, () -> authService.login("user", ""));
     }
 
+    @Test
+    @DisplayName("Reset password succeeds for active account and allows login with new password")
+    void resetPasswordSucceedsForActiveAccount() {
+        String newPassword = "NewSecurePassword@999";
+        assertDoesNotThrow(() -> authService.resetPassword("shivamkore", newPassword));
+
+        // Old password fails
+        assertThrows(AuthenticationException.class, () -> authService.login("shivamkore", PLAIN_PASSWORD));
+
+        // New password succeeds
+        User loggedIn = authService.login("shivamkore", newPassword);
+        assertNotNull(loggedIn);
+    }
+
+    @Test
+    @DisplayName("Reset password blocked for locked/inactive account")
+    void resetPasswordBlockedForInactiveAccount() {
+        // Lock the account first
+        fakeUserDao.lockAccount(testUser.getId());
+
+        AuthenticationException ex = assertThrows(AuthenticationException.class, () ->
+                authService.resetPassword("shivamkore", "NewPassword@123"));
+
+        assertTrue(ex.getMessage().contains("locked or inactive"));
+    }
+
+    @Test
+    @DisplayName("Reset password fails for unknown identifier")
+    void resetPasswordFailsForUnknownIdentifier() {
+        AuthenticationException ex = assertThrows(AuthenticationException.class, () ->
+                authService.resetPassword("nonexistent", "NewPassword@123"));
+
+        assertEquals("User not found.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Reset password enforces password policy")
+    void resetPasswordEnforcesPolicy() {
+        ValidationException ex = assertThrows(ValidationException.class, () ->
+                authService.resetPassword("shivamkore", "weak"));
+
+        assertTrue(ex.getMessage().contains("Password must be at least 8 characters"));
+    }
+
     // In-memory fake DAO implementation for isolated pure unit testing
     private static class FakeUserDao implements UserDao {
         private final Map<Long, User> usersById = new HashMap<>();
