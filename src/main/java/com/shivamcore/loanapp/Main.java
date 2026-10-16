@@ -29,10 +29,9 @@ public class Main {
             AuthService authService = new AuthService(userDao);
 
             com.shivamcore.loanapp.dao.AuditLogDao auditLogDao = new com.shivamcore.loanapp.dao.JdbcAuditLogDao(databaseManager);
-            com.shivamcore.loanapp.service.EmailService emailService = new com.shivamcore.loanapp.service.EmailService(configLoader);
-            com.shivamcore.loanapp.service.AdminService adminService = new com.shivamcore.loanapp.service.AdminService(userDao, auditLogDao, emailService);
-
             com.shivamcore.loanapp.dao.LoanDao loanDao = new com.shivamcore.loanapp.dao.JdbcLoanDao(databaseManager);
+            com.shivamcore.loanapp.service.EmailService emailService = new com.shivamcore.loanapp.service.EmailService(configLoader);
+            com.shivamcore.loanapp.service.AdminService adminService = new com.shivamcore.loanapp.service.AdminService(userDao, auditLogDao, emailService, loanDao);
             com.shivamcore.loanapp.service.LoanService loanService = new com.shivamcore.loanapp.service.LoanService(loanDao);
 
             com.shivamcore.loanapp.service.AdminSeeder adminSeeder = new com.shivamcore.loanapp.service.AdminSeeder(userDao, configLoader);

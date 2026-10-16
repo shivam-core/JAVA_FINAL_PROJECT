@@ -26,11 +26,17 @@ public class AdminService {
     private final UserDao userDao;
     private final AuditLogDao auditLogDao;
     private final EmailService emailService;
+    private final com.shivamcore.loanapp.dao.LoanDao loanDao;
 
     public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService) {
+        this(userDao, auditLogDao, emailService, null);
+    }
+
+    public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService, com.shivamcore.loanapp.dao.LoanDao loanDao) {
         this.userDao = userDao;
         this.auditLogDao = auditLogDao;
         this.emailService = emailService;
+        this.loanDao = loanDao;
     }
 
     public void requireAdmin(User currentUser) {
@@ -167,5 +173,29 @@ public class AdminService {
 
         // 3. Send final notification email
         emailService.sendDeletionEmail(targetEmail, targetFname);
+    }
+
+    public List<com.shivamcore.loanapp.model.LoanApplication> getAllLoans(User currentUser) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        return loanDao.findAll();
+    }
+
+    public List<com.shivamcore.loanapp.model.LoanApplication> getLoansByStatus(User currentUser, com.shivamcore.loanapp.model.LoanStatus status) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        return loanDao.findByStatus(status);
+    }
+
+    public Optional<com.shivamcore.loanapp.model.LoanApplication> getLoanById(User currentUser, Long loanId) {
+        requireAdmin(currentUser);
+        if (loanDao == null) {
+            throw new IllegalStateException("LoanDao is not initialized.");
+        }
+        return loanDao.findById(loanId);
     }
 }

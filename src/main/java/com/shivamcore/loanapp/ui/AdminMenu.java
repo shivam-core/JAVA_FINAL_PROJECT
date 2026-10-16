@@ -37,6 +37,7 @@ public class AdminMenu {
             System.out.println("4. Activate User");
             System.out.println("5. Deactivate User");
             System.out.println("6. Delete User");
+            System.out.println("7. Loan Management");
             System.out.println("0. Logout");
             System.out.print("Please enter your choice: ");
 
@@ -59,6 +60,9 @@ public class AdminMenu {
                     break;
                 case "6":
                     handleDeleteUser();
+                    break;
+                case "7":
+                    handleLoanManagement();
                     break;
                 case "0":
                     System.out.println("\nLogging out from Admin Dashboard. Goodbye!");
@@ -264,6 +268,108 @@ public class AdminMenu {
         for (User u : users) {
             System.out.println(String.format("%-5d | %-20s | %-25s | %-12s | %-15s | %-10s | %-10s",
                     u.getId(), u.getFullName(), u.getEmail(), u.getMobile(), u.getUsername(), u.getRole(), u.getStatus()));
+        }
+    }
+
+    private void handleLoanManagement() {
+        boolean inLoanMenu = true;
+        while (inLoanMenu) {
+            System.out.println("\n--- Loan Management ---");
+            System.out.println("1. List All Loan Applications");
+            System.out.println("2. Filter Loans by Status");
+            System.out.println("3. View Loan Details");
+            System.out.println("0. Back to Admin Dashboard");
+            System.out.print("Please enter your choice: ");
+
+            String choice = scanner.nextLine().trim();
+            switch (choice) {
+                case "1":
+                    displayLoans(adminService.getAllLoans(currentAdmin));
+                    break;
+                case "2":
+                    handleFilterLoansByStatus();
+                    break;
+                case "3":
+                    handleViewLoanDetails();
+                    break;
+                case "0":
+                    inLoanMenu = false;
+                    break;
+                default:
+                    System.out.println("Invalid selection. Please choose an option from the menu.");
+            }
+        }
+    }
+
+    private void handleFilterLoansByStatus() {
+        System.out.println("\nSelect Status to Filter:");
+        System.out.println("1. PENDING");
+        System.out.println("2. APPROVED");
+        System.out.println("3. REJECTED");
+        System.out.println("4. NEEDS_MORE_INFO");
+        System.out.print("Enter choice (1-4): ");
+        String ch = scanner.nextLine().trim();
+        com.shivamcore.loanapp.model.LoanStatus status;
+        switch (ch) {
+            case "1": status = com.shivamcore.loanapp.model.LoanStatus.PENDING; break;
+            case "2": status = com.shivamcore.loanapp.model.LoanStatus.APPROVED; break;
+            case "3": status = com.shivamcore.loanapp.model.LoanStatus.REJECTED; break;
+            case "4": status = com.shivamcore.loanapp.model.LoanStatus.NEEDS_MORE_INFO; break;
+            default:
+                System.out.println("Invalid status choice.");
+                return;
+        }
+        displayLoans(adminService.getLoansByStatus(currentAdmin, status));
+    }
+
+    private void displayLoans(List<com.shivamcore.loanapp.model.LoanApplication> loans) {
+        if (loans == null || loans.isEmpty()) {
+            System.out.println("No loan applications found.");
+            return;
+        }
+        System.out.println("\nLoan Applications (" + loans.size() + " total):");
+        System.out.printf("%-6s | %-20s | %-12s | %-14s | %-16s | %-12s\n",
+                "ID", "Applicant Name", "Type", "Amount", "Applied Date", "Status");
+        System.out.println("------------------------------------------------------------------------------------------");
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        for (com.shivamcore.loanapp.model.LoanApplication l : loans) {
+            String appDate = l.getApplicationDate() != null ? l.getApplicationDate().format(fmt) : "N/A";
+            String name = l.getApplicantName() != null ? l.getApplicantName() : "User #" + l.getUserId();
+            System.out.printf("%-6d | %-20s | %-12s | ₹%-13.2f | %-16s | %-12s\n",
+                    l.getId(), name, l.getLoanType(), l.getLoanAmount(), appDate, l.getStatus());
+        }
+    }
+
+    private void handleViewLoanDetails() {
+        System.out.print("\nEnter Loan Application ID to view details: ");
+        String idStr = scanner.nextLine().trim();
+        try {
+            Long loanId = Long.parseLong(idStr);
+            Optional<com.shivamcore.loanapp.model.LoanApplication> opt = adminService.getLoanById(currentAdmin, loanId);
+            if (opt.isEmpty()) {
+                System.out.println("Loan application not found with ID: " + loanId);
+                return;
+            }
+            com.shivamcore.loanapp.model.LoanApplication l = opt.get();
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            System.out.println("\n--- Loan Application Details ---");
+            System.out.println("Loan ID:          " + l.getId());
+            System.out.println("Applicant Name:   " + (l.getApplicantName() != null ? l.getApplicantName() : "User #" + l.getUserId()));
+            System.out.println("Applicant Email:  " + (l.getApplicantEmail() != null ? l.getApplicantEmail() : "N/A"));
+            System.out.println("Applicant Mobile: " + (l.getApplicantMobile() != null ? l.getApplicantMobile() : "N/A"));
+            System.out.printf("Loan Amount:      ₹%.2f\n", l.getLoanAmount());
+            System.out.println("Loan Type:        " + l.getLoanType().getDisplayName());
+            System.out.println("Duration:         " + l.getLoanDurationMonths() + " months");
+            System.out.printf("Annual Income:    ₹%.2f\n", l.getAnnualIncome());
+            System.out.printf("Interest Rate:    %.2f%%\n", l.getInterestRate());
+            System.out.println("Purpose:          " + l.getPurpose());
+            System.out.println("Application Date: " + (l.getApplicationDate() != null ? l.getApplicationDate().format(fmt) : "N/A"));
+            System.out.println("Status:           " + l.getStatus());
+            if (l.getRejectionReason() != null && !l.getRejectionReason().isEmpty()) {
+                System.out.println("Rejection Reason: " + l.getRejectionReason());
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid Loan ID format.");
         }
     }
 }
