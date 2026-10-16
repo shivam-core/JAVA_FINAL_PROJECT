@@ -394,5 +394,17 @@ class AdminServiceTest {
                 loan.setRejectionReason(rejectionReason);
             }
         }
+
+        @Override
+        public void approveLoan(Long id, java.math.BigDecimal emiAmount, java.math.BigDecimal totalInterest, java.math.BigDecimal totalPayable) {
+            com.shivamcore.loanapp.model.LoanApplication loan = map.get(id);
+            if (loan != null) {
+                loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.APPROVED);
+                loan.setEmiAmount(emiAmount);
+                loan.setTotalInterest(totalInterest);
+                loan.setTotalPayable(totalPayable);
+                loan.setRejectionReason(null);
+            }
+        }
     }
 }

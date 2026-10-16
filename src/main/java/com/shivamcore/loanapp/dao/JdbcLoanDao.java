@@ -167,6 +167,34 @@ public class JdbcLoanDao implements LoanDao {
         }
     }
 
+    @Override
+    public void approveLoan(Long id, BigDecimal emiAmount, BigDecimal totalInterest, BigDecimal totalPayable) {
+        String sql = "UPDATE loan_applications SET status = 'APPROVED', rejection_reason = NULL, emi_amount = ?, total_interest = ?, total_payable = ? WHERE id = ?";
+
+        try (Connection conn = databaseManager.getConnection()) {
+            boolean originalAutoCommit = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setBigDecimal(1, emiAmount);
+                ps.setBigDecimal(2, totalInterest);
+                ps.setBigDecimal(3, totalPayable);
+                ps.setLong(4, id);
+                ps.executeUpdate();
+                conn.commit();
+                logger.info("Successfully approved loan id {} with EMI {} in single transaction", id, emiAmount);
+            } catch (SQLException e) {
+                conn.rollback();
+                logger.error("Failed to approve loan id: {}, rolling back transaction", id, e);
+                throw new DataAccessException("Failed to approve loan application", e);
+            } finally {
+                conn.setAutoCommit(originalAutoCommit);
+            }
+        } catch (SQLException e) {
+            logger.error("Database connection error during loan approval: {}", id, e);
+            throw new DataAccessException("Database error during loan approval", e);
+        }
+    }
+
     private LoanApplication mapRowToLoan(ResultSet rs) throws SQLException {
         LoanApplication loan = new LoanApplication();
         loan.setId(rs.getLong("id"));

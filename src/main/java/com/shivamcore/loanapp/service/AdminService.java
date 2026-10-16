@@ -27,16 +27,22 @@ public class AdminService {
     private final AuditLogDao auditLogDao;
     private final EmailService emailService;
     private final com.shivamcore.loanapp.dao.LoanDao loanDao;
+    private final EmiCalculator emiCalculator;
 
     public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService) {
-        this(userDao, auditLogDao, emailService, null);
+        this(userDao, auditLogDao, emailService, null, null);
     }
 
     public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService, com.shivamcore.loanapp.dao.LoanDao loanDao) {
+        this(userDao, auditLogDao, emailService, loanDao, null);
+    }
+
+    public AdminService(UserDao userDao, AuditLogDao auditLogDao, EmailService emailService, com.shivamcore.loanapp.dao.LoanDao loanDao, EmiCalculator emiCalculator) {
         this.userDao = userDao;
         this.auditLogDao = auditLogDao;
         this.emailService = emailService;
         this.loanDao = loanDao;
+        this.emiCalculator = emiCalculator != null ? emiCalculator : new EmiCalculator();
     }
 
     public void requireAdmin(User currentUser) {
@@ -211,16 +217,35 @@ public class AdminService {
             throw new ValidationException("Only PENDING or NEEDS_MORE_INFO loans can be approved. Current status: " + loan.getStatus());
         }
 
-        loanDao.updateStatus(loanId, com.shivamcore.loanapp.model.LoanStatus.APPROVED, null);
+        // Calculate EMI breakdown
+        EmiCalculator.Result emiResult = emiCalculator.calculate(loan.getLoanAmount(), loan.getInterestRate(), loan.getLoanDurationMonths());
+        loan.setEmiAmount(emiResult.getEmi());
+        loan.setTotalInterest(emiResult.getTotalInterest());
+        loan.setTotalPayable(emiResult.getTotalPayable());
         loan.setStatus(com.shivamcore.loanapp.model.LoanStatus.APPROVED);
-        logger.info("Admin {} approved loan id {}", currentUser.getUsername(), loanId);
+
+        loanDao.approveLoan(loanId, emiResult.getEmi(), emiResult.getTotalInterest(), emiResult.getTotalPayable());
+        logger.info("Admin {} approved loan id {} with EMI {}", currentUser.getUsername(), loanId, emiResult.getEmi());
 
         // Notify applicant via email
         User applicant = userDao.findById(loan.getUserId()).orElse(null);
         String email = applicant != null ? applicant.getEmail() : loan.getApplicantEmail();
         String fname = applicant != null ? applicant.getFname() : (loan.getApplicantName() != null ? loan.getApplicantName() : "Applicant");
-        if (email != null && !email.isEmpty()) {
-            emailService.sendLoanApprovedEmail(email, fname, loan.getLoanAmount());
+        if (email != null && !email.isEmpty() && emailService != null) {
+            boolean sent = emailService.sendLoanApprovedEmail(
+                    email,
+                    fname,
+                    loan.getLoanAmount(),
+                    loan.getLoanType(),
+                    loan.getLoanDurationMonths(),
+                    loan.getInterestRate(),
+                    emiResult.getEmi(),
+                    emiResult.getTotalInterest(),
+                    emiResult.getTotalPayable()
+            );
+            if (!sent) {
+                logger.warn("Warning: Email delivery failed for approved loan id: {}", loanId);
+            }
         }
 
         return loan;
