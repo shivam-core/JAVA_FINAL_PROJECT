@@ -17,16 +17,23 @@ public class User {
     private Status status;
     private String username;
     private String passwordHash;
+    private Role role;
     private int failedAttempts;
 
     public User() {
         this.status = Status.ACTIVE;
+        this.role = Role.ROLE_USER;
         this.failedAttempts = 0;
         this.lastModifiedDate = LocalDateTime.now();
     }
 
     public User(Long id, String fname, String lname, String mobile, String email, String location,
                 LocalDateTime lastModifiedDate, Status status, String username, String passwordHash, int failedAttempts) {
+        this(id, fname, lname, mobile, email, location, lastModifiedDate, status, username, passwordHash, Role.ROLE_USER, failedAttempts);
+    }
+
+    public User(Long id, String fname, String lname, String mobile, String email, String location,
+                LocalDateTime lastModifiedDate, Status status, String username, String passwordHash, Role role, int failedAttempts) {
         this.id = id;
         this.fname = fname;
         this.lname = lname;
@@ -37,6 +44,7 @@ public class User {
         this.status = status != null ? status : Status.ACTIVE;
         this.username = username;
         this.passwordHash = passwordHash;
+        this.role = role != null ? role : Role.ROLE_USER;
         this.failedAttempts = failedAttempts;
     }
 
@@ -130,6 +138,18 @@ public class User {
 
     public void setFailedAttempts(int failedAttempts) {
         this.failedAttempts = failedAttempts;
+    }
+
+    public Role getRole() {
+        return role != null ? role : Role.ROLE_USER;
+    }
+
+    public void setRole(Role role) {
+        this.role = role != null ? role : Role.ROLE_USER;
+    }
+
+    public boolean isAdmin() {
+        return Role.ROLE_ADMIN.equals(this.role);
     }
 
     @Override
