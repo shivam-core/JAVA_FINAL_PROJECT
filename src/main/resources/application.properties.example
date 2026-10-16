@@ -1,0 +1,11 @@
+db.url=jdbc:mysql://localhost:3306/loan_app?useSSL=false&serverTimezone=UTC
+db.user=root
+db.password=CHANGE_ME
+smtp.host=smtp.gmail.com
+smtp.port=587
+smtp.username=your_email@gmail.com
+smtp.password=GMAIL_APP_PASSWORD
+smtp.from=your_email@gmail.com
+mail.enabled=true
+admin.username=admin
+admin.password=CHANGE_ME_Admin@123
