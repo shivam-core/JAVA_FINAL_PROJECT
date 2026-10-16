@@ -13,6 +13,8 @@ public class User {
     private String mobile;
     private String email;
     private String location;
+    private String panCard;
+    private Integer cibilScore;
     private LocalDateTime lastModifiedDate;
     private Status status;
     private String username;
@@ -98,6 +100,22 @@ public class User {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public String getPanCard() {
+        return panCard;
+    }
+
+    public void setPanCard(String panCard) {
+        this.panCard = panCard;
+    }
+
+    public Integer getCibilScore() {
+        return cibilScore;
+    }
+
+    public void setCibilScore(Integer cibilScore) {
+        this.cibilScore = cibilScore;
     }
 
     public LocalDateTime getLastModifiedDate() {

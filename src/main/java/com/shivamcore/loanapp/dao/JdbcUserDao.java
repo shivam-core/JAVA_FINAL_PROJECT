@@ -30,8 +30,8 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public User save(User user) {
-        String sql = "INSERT INTO users (fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -42,12 +42,18 @@ public class JdbcUserDao implements UserDao {
             ps.setString(3, user.getMobile());
             ps.setString(4, user.getEmail());
             ps.setString(5, user.getLocation());
-            ps.setTimestamp(6, Timestamp.valueOf(now));
-            ps.setString(7, user.getStatus() != null ? user.getStatus().name() : Status.ACTIVE.name());
-            ps.setString(8, user.getUsername());
-            ps.setString(9, user.getPasswordHash());
-            ps.setString(10, user.getRole() != null ? user.getRole().name() : Role.ROLE_USER.name());
-            ps.setInt(11, user.getFailedAttempts());
+            ps.setString(6, user.getPanCard());
+            if (user.getCibilScore() != null) {
+                ps.setInt(7, user.getCibilScore());
+            } else {
+                ps.setNull(7, Types.INTEGER);
+            }
+            ps.setTimestamp(8, Timestamp.valueOf(now));
+            ps.setString(9, user.getStatus() != null ? user.getStatus().name() : Status.ACTIVE.name());
+            ps.setString(10, user.getUsername());
+            ps.setString(11, user.getPasswordHash());
+            ps.setString(12, user.getRole() != null ? user.getRole().name() : Role.ROLE_USER.name());
+            ps.setInt(13, user.getFailedAttempts());
 
             ps.executeUpdate();
 
@@ -66,7 +72,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public Optional<User> findById(Long id) {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users WHERE id = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -87,7 +93,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public Optional<User> findByUsername(String username) {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users WHERE username = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -108,7 +114,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public Optional<User> findByEmail(String email) {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users WHERE email = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -272,9 +278,53 @@ public class JdbcUserDao implements UserDao {
     }
 
     @Override
+    public Optional<User> findByPan(String pan) {
+        if (pan == null || pan.trim().isEmpty()) {
+            return Optional.empty();
+        }
+        String sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+                "FROM users WHERE pan_card = ?";
+
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, pan.trim().toUpperCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapRowToUser(rs));
+                }
+            }
+            return Optional.empty();
+        } catch (SQLException e) {
+            logger.error("Error finding user by PAN: {}", pan, e);
+            throw new DataAccessException("Failed to query user by PAN", e);
+        }
+    }
+
+    @Override
+    public boolean existsByPan(String pan) {
+        if (pan == null || pan.trim().isEmpty()) {
+            return false;
+        }
+        String sql = "SELECT 1 FROM users WHERE pan_card = ? LIMIT 1";
+
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, pan.trim().toUpperCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            logger.error("Error checking PAN existence: {}", pan, e);
+            throw new DataAccessException("Failed to check PAN existence", e);
+        }
+    }
+
+    @Override
     public void update(User user) {
         String sql = "UPDATE users SET fname = ?, lname = ?, mobile = ?, email = ?, location = ?, " +
-                "last_modified_date = ?, status = ?, username = ?, password_hash = ?, user_role = ?, failed_attempts = ? " +
+                "pan_card = ?, cibil_score = ?, last_modified_date = ?, status = ?, username = ?, password_hash = ?, user_role = ?, failed_attempts = ? " +
                 "WHERE id = ?";
 
         try (Connection conn = databaseManager.getConnection();
@@ -286,13 +336,19 @@ public class JdbcUserDao implements UserDao {
             ps.setString(3, user.getMobile());
             ps.setString(4, user.getEmail());
             ps.setString(5, user.getLocation());
-            ps.setTimestamp(6, Timestamp.valueOf(now));
-            ps.setString(7, user.getStatus().name());
-            ps.setString(8, user.getUsername());
-            ps.setString(9, user.getPasswordHash());
-            ps.setString(10, user.getRole() != null ? user.getRole().name() : Role.ROLE_USER.name());
-            ps.setInt(11, user.getFailedAttempts());
-            ps.setLong(12, user.getId());
+            ps.setString(6, user.getPanCard());
+            if (user.getCibilScore() != null) {
+                ps.setInt(7, user.getCibilScore());
+            } else {
+                ps.setNull(7, Types.INTEGER);
+            }
+            ps.setTimestamp(8, Timestamp.valueOf(now));
+            ps.setString(9, user.getStatus().name());
+            ps.setString(10, user.getUsername());
+            ps.setString(11, user.getPasswordHash());
+            ps.setString(12, user.getRole() != null ? user.getRole().name() : Role.ROLE_USER.name());
+            ps.setInt(13, user.getFailedAttempts());
+            ps.setLong(14, user.getId());
 
             ps.executeUpdate();
             user.setLastModifiedDate(now);
@@ -318,7 +374,7 @@ public class JdbcUserDao implements UserDao {
 
     @Override
     public List<User> findAll() {
-        String sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
+        String sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts " +
                 "FROM users ORDER BY id ASC";
         List<User> list = new ArrayList<>();
         try (Connection conn = databaseManager.getConnection();
@@ -347,25 +403,30 @@ public class JdbcUserDao implements UserDao {
             case "fname":
             case "first name":
             case "firstname":
-                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE fname LIKE ? ORDER BY id ASC";
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE fname LIKE ? ORDER BY id ASC";
                 break;
             case "lname":
             case "last name":
             case "lastname":
-                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE lname LIKE ? ORDER BY id ASC";
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE lname LIKE ? ORDER BY id ASC";
                 break;
             case "email":
-                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE email LIKE ? ORDER BY id ASC";
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE email LIKE ? ORDER BY id ASC";
                 break;
             case "mobile":
-                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE mobile = ? ORDER BY id ASC";
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE mobile = ? ORDER BY id ASC";
                 isLike = false;
                 break;
             case "username":
-                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE username LIKE ? ORDER BY id ASC";
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE username LIKE ? ORDER BY id ASC";
                 break;
             case "status":
-                sql = "SELECT id, fname, lname, mobile, email, location, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE status = ? ORDER BY id ASC";
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE status = ? ORDER BY id ASC";
+                isLike = false;
+                break;
+            case "pan":
+            case "pan_card":
+                sql = "SELECT id, fname, lname, mobile, email, location, pan_card, cibil_score, last_modified_date, status, username, password_hash, user_role, failed_attempts FROM users WHERE pan_card = ? ORDER BY id ASC";
                 isLike = false;
                 break;
             default:
@@ -401,6 +462,11 @@ public class JdbcUserDao implements UserDao {
         user.setMobile(rs.getString("mobile"));
         user.setEmail(rs.getString("email"));
         user.setLocation(rs.getString("location"));
+        user.setPanCard(rs.getString("pan_card"));
+        int cibil = rs.getInt("cibil_score");
+        if (!rs.wasNull()) {
+            user.setCibilScore(cibil);
+        }
 
         Timestamp ts = rs.getTimestamp("last_modified_date");
         if (ts != null) {

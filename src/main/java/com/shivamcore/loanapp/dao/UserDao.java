@@ -19,9 +19,13 @@ public interface UserDao {
 
     Optional<User> findByIdentifier(String identifier);
 
+    Optional<User> findByPan(String pan);
+
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    boolean existsByPan(String pan);
 
     boolean existsByRole(com.shivamcore.loanapp.model.Role role);
 
