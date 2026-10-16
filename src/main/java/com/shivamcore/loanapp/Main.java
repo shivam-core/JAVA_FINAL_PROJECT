@@ -32,11 +32,14 @@ public class Main {
             com.shivamcore.loanapp.service.EmailService emailService = new com.shivamcore.loanapp.service.EmailService(configLoader);
             com.shivamcore.loanapp.service.AdminService adminService = new com.shivamcore.loanapp.service.AdminService(userDao, auditLogDao, emailService);
 
+            com.shivamcore.loanapp.dao.LoanDao loanDao = new com.shivamcore.loanapp.dao.JdbcLoanDao(databaseManager);
+            com.shivamcore.loanapp.service.LoanService loanService = new com.shivamcore.loanapp.service.LoanService(loanDao);
+
             com.shivamcore.loanapp.service.AdminSeeder adminSeeder = new com.shivamcore.loanapp.service.AdminSeeder(userDao, configLoader);
             adminSeeder.seedAdminIfAbsent();
 
             ConsoleInput consoleInput = new ConsoleInput();
-            MainMenu mainMenu = new MainMenu(userService, authService, adminService, consoleInput);
+            MainMenu mainMenu = new MainMenu(userService, authService, adminService, loanService, consoleInput);
 
             mainMenu.run();
         } catch (Exception e) {
