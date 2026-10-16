@@ -28,8 +28,15 @@ public class Main {
             UserService userService = new UserService(userDao);
             AuthService authService = new AuthService(userDao);
 
+            com.shivamcore.loanapp.dao.AuditLogDao auditLogDao = new com.shivamcore.loanapp.dao.JdbcAuditLogDao(databaseManager);
+            com.shivamcore.loanapp.service.EmailService emailService = new com.shivamcore.loanapp.service.EmailService(configLoader);
+            com.shivamcore.loanapp.service.AdminService adminService = new com.shivamcore.loanapp.service.AdminService(userDao, auditLogDao, emailService);
+
+            com.shivamcore.loanapp.service.AdminSeeder adminSeeder = new com.shivamcore.loanapp.service.AdminSeeder(userDao, configLoader);
+            adminSeeder.seedAdminIfAbsent();
+
             ConsoleInput consoleInput = new ConsoleInput();
-            MainMenu mainMenu = new MainMenu(userService, authService, consoleInput);
+            MainMenu mainMenu = new MainMenu(userService, authService, adminService, consoleInput);
 
             mainMenu.run();
         } catch (Exception e) {

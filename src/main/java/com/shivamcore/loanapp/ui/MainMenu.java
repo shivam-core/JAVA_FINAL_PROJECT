@@ -16,12 +16,18 @@ public class MainMenu {
 
     private final UserService userService;
     private final AuthService authService;
+    private final com.shivamcore.loanapp.service.AdminService adminService;
     private final ConsoleInput input;
     private final UserMenu userMenu;
 
     public MainMenu(UserService userService, AuthService authService, ConsoleInput input) {
+        this(userService, authService, null, input);
+    }
+
+    public MainMenu(UserService userService, AuthService authService, com.shivamcore.loanapp.service.AdminService adminService, ConsoleInput input) {
         this.userService = userService;
         this.authService = authService;
+        this.adminService = adminService;
         this.input = input;
         this.userMenu = new UserMenu(input);
     }
@@ -148,7 +154,11 @@ public class MainMenu {
             User user = authService.login(identifier, password);
             System.out.println();
             System.out.println("Welcome " + user.getFname() + " " + user.getLname());
-            userMenu.show(user);
+            if (user.isAdmin() && adminService != null) {
+                new AdminMenu(input.getScanner(), adminService, user).display();
+            } else {
+                userMenu.show(user);
+            }
         } catch (ValidationException | AuthenticationException e) {
             System.out.println("Login Failed: " + e.getMessage());
         } catch (Exception e) {
