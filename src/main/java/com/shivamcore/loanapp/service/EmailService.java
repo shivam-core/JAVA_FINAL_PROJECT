@@ -103,6 +103,26 @@ public class EmailService {
         return sendEmail(toEmail, subject, body);
     }
 
+    // Stage 5 loan approval notification with EMI breakdown
+    public boolean sendLoanApprovedEmail(String toEmail, String fname, java.math.BigDecimal loanAmount,
+                                         com.shivamcore.loanapp.model.LoanType loanType, int tenureMonths,
+                                         java.math.BigDecimal interestRate, java.math.BigDecimal emi,
+                                         java.math.BigDecimal totalInterest, java.math.BigDecimal totalPayable) {
+        String subject = "Your Loan Application has been Approved!";
+        String body = "Dear " + fname + ",\n\n" +
+                "Congratulations! Your loan application has been approved.\n\n" +
+                "Loan Sanction Breakdown:\n" +
+                "- Loan Type: " + (loanType != null ? loanType.getDisplayName() : "Loan") + "\n" +
+                "- Sanctioned Amount: ₹" + loanAmount + "\n" +
+                "- Loan Duration: " + tenureMonths + " months\n" +
+                "- Applied Interest Rate: " + interestRate + "%\n" +
+                "- Monthly EMI: ₹" + emi + "\n" +
+                "- Total Interest: ₹" + totalInterest + "\n" +
+                "- Total Payable: ₹" + totalPayable + "\n\n" +
+                "Thank you for choosing our services.";
+        return sendEmail(toEmail, subject, body);
+    }
+
     public boolean sendLoanRejectedEmail(String toEmail, String fname, String reason) {
         String subject = "Your Loan Application has been Rejected";
         String body = "Dear " + fname + ", we regret to inform you that your loan application has been rejected. Reason: " + reason + ". Please contact support for more details.";
